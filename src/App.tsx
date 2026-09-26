@@ -1,8 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Collection, Poem, Draft, ViewFilter } from './types/poetry';
 import { storageService } from './services/storageService';
 import { authService, UserProfile } from './services/authService';
 import { cloudSyncService, SyncStatus } from './services/cloudSyncService';
+import {
+  fileParserService,
+  FileAnalysisResult,
+  ParsedPoemCandidate,
+  GroupPreference,
+} from './services/fileParserService';
 import { Sidebar } from './components/Sidebar';
 import { PoemCanvas } from './components/PoemCanvas';
 import { DraftTimeline } from './components/DraftTimeline';
@@ -11,6 +17,8 @@ import { NewDraftModal } from './components/NewDraftModal';
 import { NewPoemModal } from './components/NewPoemModal';
 import { NewCollectionModal } from './components/NewCollectionModal';
 import { UserAccountModal } from './components/UserAccountModal';
+import { OrganizeImportModal } from './components/OrganizeImportModal';
+import { DropZoneOverlay } from './components/DropZoneOverlay';
 
 export const App: React.FC = () => {
   // --- Persistent & Core State ---
@@ -26,6 +34,13 @@ export const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => cloudSyncService.getSyncStatus().status);
   const [lastSyncedTime, setLastSyncedTime] = useState<Date | null>(() => cloudSyncService.getSyncStatus().lastSynced);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+
+  // --- Drag & Drop / File Intake State ---
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
+  const [fileAnalysis, setFileAnalysis] = useState<FileAnalysisResult | null>(null);
+  const [isOrganizeModalOpen, setIsOrganizeModalOpen] = useState(false);
+  const poetryFileInputRef = useRef<HTMLInputElement>(null);
 
   // Subscribe to auth, sync status, and storage changes
   useEffect(() => {
@@ -258,6 +273,108 @@ export const App: React.FC = () => {
     showToast(`Loaded ${draft.versionTag} into editor. Ready to commit new revision.`);
   };
 
+  // --- File Intake & Smart Organization Handlers ---
+  const handleProcessFile = async (file: File) => {
+    try {
+      showToast(`Analyzing "${file.name}"...`);
+      const result = await fileParserService.parseFile(file);
+      setFileAnalysis(result);
+      setIsOrganizeModalOpen(true);
+    } catch (err: any) {
+      console.error('File parse error:', err);
+      showToast(`Failed to parse file: ${err.message || 'Unknown format'}`);
+    }
+  };
+
+  const handleConfirmImport = (config: {
+    selectedPoems: ParsedPoemCandidate[];
+    groupMode: GroupPreference;
+    collectionId?: string;
+    newCollectionTitle?: string;
+    newCollectionDescription?: string;
+  }) => {
+    const { selectedPoems, groupMode, collectionId, newCollectionTitle, newCollectionDescription } = config;
+    if (selectedPoems.length === 0) return;
+
+    let targetCollectionId = collectionId;
+
+    if (groupMode === 'new-collection') {
+      const col = storageService.createCollection(
+        newCollectionTitle || 'Imported Anthology',
+        newCollectionDescription || 'Imported from manuscript',
+        'Archived Anthology'
+      );
+      targetCollectionId = col.id;
+    }
+
+    let firstCreatedPoemId: string | null = null;
+
+    if (groupMode === 'by-theme') {
+      // Group poems by theme into distinct thematic collections
+      const byTheme: Record<string, ParsedPoemCandidate[]> = {};
+      selectedPoems.forEach((p) => {
+        const theme = p.primaryTheme || 'General Anthology';
+        if (!byTheme[theme]) byTheme[theme] = [];
+        byTheme[theme].push(p);
+      });
+
+      Object.entries(byTheme).forEach(([theme, themePoems]) => {
+        const col = storageService.createCollection(
+          theme,
+          `Curated poems themed around ${theme.toLowerCase()}.`,
+          'Thematic Volume'
+        );
+        themePoems.forEach((poem) => {
+          const newP = storageService.createPoem(
+            poem.title,
+            col.id,
+            poem.stanzas,
+            poem.author || 'Anonymous',
+            undefined,
+            poem.suggestedTags,
+            'Imported manuscript draft'
+          );
+          if (!firstCreatedPoemId) firstCreatedPoemId = newP.id;
+        });
+      });
+    } else {
+      // Single collection destination
+      selectedPoems.forEach((poem) => {
+        const newP = storageService.createPoem(
+          poem.title,
+          targetCollectionId || collections[0]?.id || '',
+          poem.stanzas,
+          poem.author || 'Anonymous',
+          undefined,
+          poem.suggestedTags,
+          'Imported manuscript draft'
+        );
+        if (!firstCreatedPoemId) firstCreatedPoemId = newP.id;
+      });
+    }
+
+    const updatedCols = storageService.getCollections();
+    const updatedPoems = storageService.getPoems();
+    setCollections(updatedCols);
+    setPoems(updatedPoems);
+
+    if (targetCollectionId) {
+      setFilter({ type: 'collection', collectionId: targetCollectionId });
+    } else {
+      setFilter({ type: 'all' });
+    }
+
+    if (firstCreatedPoemId) {
+      setActivePoemId(firstCreatedPoemId);
+      const target = updatedPoems.find((p) => p.id === firstCreatedPoemId);
+      if (target && target.drafts.length > 0) {
+        setSelectedDraftId(target.drafts[target.drafts.length - 1].id);
+      }
+    }
+
+    showToast(`Organized & imported ${selectedPoems.length} poems into your archive!`);
+  };
+
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -285,7 +402,55 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-paper-50 dark:bg-ink-950 font-sans">
+    <div
+      className="flex h-screen w-screen overflow-hidden bg-paper-50 dark:bg-ink-950 font-sans relative"
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current++;
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+          setIsDragging(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter.current--;
+        if (dragCounter.current <= 0) {
+          setIsDragging(false);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        dragCounter.current = 0;
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleProcessFile(e.dataTransfer.files[0]);
+        }
+      }}
+    >
+      {/* Full-screen Drag and Drop Indicator */}
+      <DropZoneOverlay isDragging={isDragging} />
+
+      {/* Hidden file input for file picker button */}
+      <input
+        type="file"
+        ref={poetryFileInputRef}
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleProcessFile(e.target.files[0]);
+            e.target.value = '';
+          }
+        }}
+        accept=".pdf,.txt,.md,.text,.json"
+        className="hidden"
+      />
+
       {/* Left Sidebar (Collections & Poems list) */}
       {!isZenMode && (
         <Sidebar
@@ -299,6 +464,7 @@ export const App: React.FC = () => {
           syncStatus={syncStatus}
           lastSyncedTime={lastSyncedTime}
           onOpenAccountModal={() => setIsAccountModalOpen(true)}
+          onOpenFilePicker={() => poetryFileInputRef.current?.click()}
           onSelectPoem={handleSelectPoem}
           onSelectFilter={setFilter}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -401,6 +567,15 @@ export const App: React.FC = () => {
           setCollections(storageService.getCollections());
           setPoems(storageService.getPoems());
         }}
+      />
+
+      {/* Organize & Import Poetry Modal */}
+      <OrganizeImportModal
+        isOpen={isOrganizeModalOpen}
+        onClose={() => setIsOrganizeModalOpen(false)}
+        analysis={fileAnalysis}
+        existingCollections={collections}
+        onConfirmImport={handleConfirmImport}
       />
 
       {/* Toast Feedback Notification */}

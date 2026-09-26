@@ -32,6 +32,7 @@ interface SidebarProps {
   syncStatus?: SyncStatus;
   lastSyncedTime?: Date | null;
   onOpenAccountModal?: () => void;
+  onOpenFilePicker?: () => void;
   onSelectPoem: (poemId: string) => void;
   onSelectFilter: (filter: ViewFilter) => void;
   onToggleCollapse: () => void;
@@ -75,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   syncStatus = 'guest',
   lastSyncedTime,
   onOpenAccountModal,
+  onOpenFilePicker,
   onSelectPoem,
   onSelectFilter,
   onToggleCollapse,
@@ -155,6 +157,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="p-2 text-paper-600 hover:text-paper-900 dark:text-ink-300 dark:hover:text-white rounded transition-colors"
           >
             <Plus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onOpenFilePicker}
+            title="Import & Organize PDF or Manuscript"
+            className="p-2 text-paper-600 hover:text-paper-900 dark:text-ink-300 dark:hover:text-white rounded transition-colors"
+          >
+            <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </button>
         </div>
 
@@ -290,14 +299,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Action Button: New Poem */}
-        <button
-          onClick={onOpenNewPoem}
-          className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-paper-900 hover:bg-black text-paper-50 dark:bg-ink-100 dark:text-ink-950 dark:hover:bg-white rounded transition-colors text-xs font-medium tracking-wide shadow-subtle mb-3"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Poem Draft</span>
-        </button>
+        {/* Action Buttons: New Poem & Import PDF */}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <button
+            onClick={onOpenNewPoem}
+            className="flex items-center justify-center space-x-1.5 px-2.5 py-2 bg-paper-900 hover:bg-black text-paper-50 dark:bg-ink-100 dark:text-ink-950 dark:hover:bg-white rounded-lg transition-colors text-xs font-medium tracking-wide shadow-subtle"
+            title="Create a new blank poem draft"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Poem</span>
+          </button>
+          <button
+            onClick={onOpenFilePicker}
+            className="flex items-center justify-center space-x-1.5 px-2.5 py-2 bg-paper-200/90 hover:bg-paper-300/80 dark:bg-ink-900 dark:hover:bg-ink-800 text-paper-800 dark:text-ink-200 border border-paper-300/80 dark:border-ink-800 rounded-lg transition-colors text-xs font-medium tracking-wide shadow-xs"
+            title="Drop or upload a PDF or text manuscript to sort and organize"
+          >
+            <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <span>Import PDF</span>
+          </button>
+        </div>
 
         {/* Search Bar */}
         <div className="relative">
