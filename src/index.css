@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-feature-settings: "liga" 1, "kern" 1, "onum" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: #E2DDCF;
+    color: #181613;
+  }
+
+  .dark ::selection {
+    background-color: #2A2C35;
+    color: #F1F3F9;
+  }
+}
+
+/* Custom scrollbar for minimalist quiet aesthetics */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 140, 130, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 140, 130, 0.4);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(100, 110, 130, 0.25);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 110, 130, 0.45);
+}
+
+/* Distraction free reading transitions */
+.zen-transition {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Poetry stanza indentation and verse rendering */
+.poem-stanza-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  tab-size: 2;
+}
+
+/* Diff highlights */
+.diff-del {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  text-decoration: line-through;
+  text-decoration-color: rgba(185, 28, 28, 0.5);
+  border-radius: 2px;
+  padding: 0 3px;
+}
+
+.dark .diff-del {
+  background-color: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  text-decoration: line-through;
+  text-decoration-color: rgba(252, 165, 165, 0.5);
+}
+
+.diff-add {
+  background-color: rgba(34, 197, 94, 0.14);
+  color: #15803d;
+  border-radius: 2px;
+  padding: 0 3px;
+}
+
+.dark .diff-add {
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes toastSlideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-toast {
+  animation: toastSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* High-fidelity Literary Print Stylesheet */
+@media print {
+  @page {
+    margin: 3cm 2.5cm;
+    size: A4 portrait;
+  }
+
+  .no-print,
+  aside,
+  header,
+  nav,
+  button,
+  footer {
+    display: none !important;
+  }
+
+  html,
+  body,
+  #root,
+  main {
+    background: #ffffff !important;
+    color: #1a1a1a !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  article {
+    max-width: 36em !important;
+    margin: 0 auto !important;
+    page-break-after: always;
+  }
+
+  h1 {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-size: 28pt !important;
+    line-height: 1.2 !important;
+    margin-bottom: 0.3cm !important;
+    color: #000000 !important;
+  }
+
+  .poem-stanza-text {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    font-size: 14pt !important;
+    line-height: 2.1 !important;
+    color: #1a1a1a !important;
+    page-break-inside: avoid;
+  }
+}
