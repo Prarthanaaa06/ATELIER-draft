@@ -73,6 +73,27 @@ class StorageService {
     this.saveCollections(collections);
   }
 
+  updateCollection(
+    id: string,
+    updates: Partial<Pick<Collection, 'title' | 'description' | 'coverMotto'>>
+  ): Collection {
+    const collections = this.getCollections();
+    const index = collections.findIndex((c) => c.id === id);
+    if (index === -1) throw new Error('Collection not found');
+
+    const updatedCollection: Collection = {
+      ...collections[index],
+      ...updates,
+      title: updates.title !== undefined ? updates.title.trim() : collections[index].title,
+      description: updates.description !== undefined ? updates.description.trim() : collections[index].description,
+      coverMotto: updates.coverMotto !== undefined ? updates.coverMotto?.trim() : collections[index].coverMotto,
+    };
+
+    collections[index] = updatedCollection;
+    this.saveCollections(collections);
+    return updatedCollection;
+  }
+
   // --- Poems ---
   getPoems(): Poem[] {
     if (!this.isBrowser()) return INITIAL_POEMS;

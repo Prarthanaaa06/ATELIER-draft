@@ -17,6 +17,8 @@ import {
   Sparkles,
   RotateCcw,
   Palette,
+  Edit2,
+  X,
 } from 'lucide-react';
 import { Poem, Draft, Collection, AppTheme } from '../types/poetry';
 import { ThemeSelectorMenu } from './ThemeSelectorMenu';
@@ -35,6 +37,8 @@ interface PoemCanvasProps {
   onJumpToLatestDraft: () => void;
   onUpdateDraftContent: (newStanzas: string) => void;
   onBranchFromDraft?: (draft: Draft) => void;
+  onUpdatePoemTitle?: (poemId: string, newTitle: string) => void;
+  onEditCollection?: (collection: Collection) => void;
 }
 
 export const PoemCanvas: React.FC<PoemCanvasProps> = ({
@@ -51,6 +55,8 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
   onJumpToLatestDraft,
   onUpdateDraftContent,
   onBranchFromDraft,
+  onUpdatePoemTitle,
+  onEditCollection,
 }) => {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -58,7 +64,15 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xl'>('normal');
   const [fontFamily, setFontFamily] = useState<'garamond' | 'newsreader'>('garamond');
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(poem.title);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync title when poem changes
+  useEffect(() => {
+    setEditedTitle(poem.title);
+    setIsEditingTitle(false);
+  }, [poem.id, poem.title]);
 
   // Sync edited stanzas when draft changes
   useEffect(() => {
@@ -106,6 +120,20 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const handleSaveTitle = () => {
+    if (editedTitle.trim() && onUpdatePoemTitle) {
+      onUpdatePoemTitle(poem.id, editedTitle.trim());
+    } else {
+      setEditedTitle(poem.title);
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleCancelTitleEdit = () => {
+    setEditedTitle(poem.title);
+    setIsEditingTitle(false);
+  };
+
   const hasUncommittedChanges = isLatestDraft && editedStanzas !== selectedDraft.stanzas;
 
   return (
@@ -122,9 +150,20 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
             Anthology
           </span>
           <span>/</span>
-          <span className="font-serif italic text-paper-700 dark:text-ink-300">
-            {collection?.title || 'Archive'}
-          </span>
+          {collection && onEditCollection ? (
+            <button
+              onClick={() => onEditCollection(collection)}
+              className="group/bc flex items-center space-x-1.5 font-serif italic text-paper-700 dark:text-ink-300 hover:text-amber-700 dark:hover:text-amber-400 transition-colors"
+              title="Click to edit collection title & details"
+            >
+              <span>{collection.title}</span>
+              <Edit2 className="w-2.5 h-2.5 opacity-40 group-hover/bc:opacity-100 transition-opacity" />
+            </button>
+          ) : (
+            <span className="font-serif italic text-paper-700 dark:text-ink-300">
+              {collection?.title || 'Archive'}
+            </span>
+          )}
         </div>
 
         {/* Action Controls */}
@@ -287,17 +326,75 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
       <article className="flex-1 max-w-2xl w-full mx-auto mt-8 sm:mt-12 mb-16 flex flex-col justify-start">
         {/* Poem Header: Title & Epigraph */}
         <header className="mb-10 text-left">
-          <h1
-            className={`font-serif tracking-normal text-paper-950 dark:text-paper-50 leading-tight ${
-              fontSize === 'normal'
-                ? 'text-3xl sm:text-4xl'
-                : fontSize === 'large'
-                ? 'text-4xl sm:text-5xl'
-                : 'text-5xl sm:text-6xl'
-            }`}
-          >
-            {poem.title}
-          </h1>
+          {isEditingTitle ? (
+            <div className="space-y-2 animate-fadeIn">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveTitle();
+                    if (e.key === 'Escape') handleCancelTitleEdit();
+                  }}
+                  autoFocus
+                  className={`w-full font-serif bg-white dark:bg-ink-850 border border-amber-500/60 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500/40 text-paper-950 dark:text-paper-50 leading-tight ${
+                    fontSize === 'normal'
+                      ? 'text-2xl sm:text-3xl'
+                      : fontSize === 'large'
+                      ? 'text-3xl sm:text-4xl'
+                      : 'text-4xl sm:text-5xl'
+                  }`}
+                  placeholder="Poem Title..."
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveTitle}
+                  className="p-2.5 rounded-xl bg-paper-900 hover:bg-black text-paper-50 dark:bg-ink-100 dark:text-ink-950 dark:hover:bg-white transition-colors shrink-0 shadow-xs"
+                  title="Save title (Enter)"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelTitleEdit}
+                  className="p-2.5 rounded-xl bg-paper-200 dark:bg-ink-800 text-paper-700 dark:text-ink-300 hover:bg-paper-300 dark:hover:bg-ink-700 transition-colors shrink-0"
+                  title="Cancel (Esc)"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-[11px] text-paper-400 dark:text-ink-500 font-sans">
+                Press <kbd className="px-1.5 py-0.5 rounded bg-paper-200 dark:bg-ink-800 text-mono text-[10px]">Enter</kbd> to save, <kbd className="px-1.5 py-0.5 rounded bg-paper-200 dark:bg-ink-800 text-mono text-[10px]">Esc</kbd> to cancel
+              </p>
+            </div>
+          ) : (
+            <div className="group/title inline-flex items-center gap-2.5 max-w-full">
+              <h1
+                onClick={() => onUpdatePoemTitle && setIsEditingTitle(true)}
+                className={`font-serif tracking-normal text-paper-950 dark:text-paper-50 leading-tight cursor-pointer hover:opacity-90 inline ${
+                  fontSize === 'normal'
+                    ? 'text-3xl sm:text-4xl'
+                    : fontSize === 'large'
+                    ? 'text-4xl sm:text-5xl'
+                    : 'text-5xl sm:text-6xl'
+                }`}
+                title="Click to edit title"
+              >
+                {poem.title}
+              </h1>
+              {onUpdatePoemTitle && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditingTitle(true)}
+                  className="opacity-0 group-hover/title:opacity-100 p-1.5 rounded-lg hover:bg-paper-200/80 dark:hover:bg-ink-800 text-paper-400 hover:text-amber-600 dark:text-ink-500 dark:hover:text-amber-400 transition-all shrink-0"
+                  title="Edit poem title"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
 
           {poem.subtitle && (
             <p className="mt-2 text-base sm:text-lg font-serif italic text-paper-600 dark:text-ink-400">

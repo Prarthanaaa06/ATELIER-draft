@@ -16,6 +16,7 @@ import { DiffViewer } from './components/DiffViewer';
 import { NewDraftModal } from './components/NewDraftModal';
 import { NewPoemModal } from './components/NewPoemModal';
 import { NewCollectionModal } from './components/NewCollectionModal';
+import { EditCollectionModal } from './components/EditCollectionModal';
 import { UserAccountModal } from './components/UserAccountModal';
 import { OrganizeImportModal } from './components/OrganizeImportModal';
 import { DropZoneOverlay } from './components/DropZoneOverlay';
@@ -137,6 +138,8 @@ export const App: React.FC = () => {
   const [isNewDraftModalOpen, setIsNewDraftModalOpen] = useState(false);
   const [isNewPoemModalOpen, setIsNewPoemModalOpen] = useState(false);
   const [isNewCollectionModalOpen, setIsNewCollectionModalOpen] = useState(false);
+  const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
+  const [isEditCollectionOpen, setIsEditCollectionOpen] = useState(false);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -224,6 +227,43 @@ export const App: React.FC = () => {
     setCollections(storageService.getCollections());
     setFilter({ type: 'collection', collectionId: newCol.id });
     showToast(`Created collection "${title}".`);
+  };
+
+  const handleUpdatePoemTitle = (poemId: string, newTitle: string) => {
+    storageService.updatePoemMetadata(poemId, { title: newTitle });
+    const updated = storageService.getPoems();
+    setPoems(updated);
+    showToast(`Renamed poem to "${newTitle}".`);
+  };
+
+  const handleOpenEditCollection = (col: Collection) => {
+    setEditingCollection(col);
+    setIsEditCollectionOpen(true);
+  };
+
+  const handleConfirmEditCollection = (
+    collectionId: string,
+    title: string,
+    description: string,
+    coverMotto?: string
+  ) => {
+    storageService.updateCollection(collectionId, {
+      title,
+      description,
+      coverMotto,
+    });
+    setCollections(storageService.getCollections());
+    showToast(`Updated collection "${title}".`);
+  };
+
+  const handleDeleteCollection = (collectionId: string) => {
+    const colToDelete = collections.find((c) => c.id === collectionId);
+    storageService.deleteCollection(collectionId);
+    setCollections(storageService.getCollections());
+    if (filter.type === 'collection' && filter.collectionId === collectionId) {
+      setFilter({ type: 'all' });
+    }
+    showToast(`Deleted collection "${colToDelete?.title || 'Collection'}".`);
   };
 
   const handleResetData = () => {
@@ -492,6 +532,7 @@ export const App: React.FC = () => {
           onToggleDarkMode={() => handleSelectTheme(currentTheme === 'dark' ? 'brown' : 'dark')}
           onOpenNewPoem={() => setIsNewPoemModalOpen(true)}
           onOpenNewCollection={() => setIsNewCollectionModalOpen(true)}
+          onEditCollection={handleOpenEditCollection}
           onResetData={handleResetData}
           onExportJson={handleExportJson}
           onImportJson={handleImportJson}
@@ -521,6 +562,8 @@ export const App: React.FC = () => {
           onJumpToLatestDraft={handleJumpToLatestDraft}
           onUpdateDraftContent={setWorkingStanzas}
           onBranchFromDraft={handleBranchFromDraft}
+          onUpdatePoemTitle={handleUpdatePoemTitle}
+          onEditCollection={handleOpenEditCollection}
         />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-paper-500 dark:text-ink-500">
@@ -576,6 +619,17 @@ export const App: React.FC = () => {
         isOpen={isNewCollectionModalOpen}
         onClose={() => setIsNewCollectionModalOpen(false)}
         onConfirm={handleCreateCollection}
+      />
+
+      <EditCollectionModal
+        isOpen={isEditCollectionOpen}
+        onClose={() => {
+          setIsEditCollectionOpen(false);
+          setEditingCollection(null);
+        }}
+        collection={editingCollection}
+        onConfirm={handleConfirmEditCollection}
+        onDelete={handleDeleteCollection}
       />
 
       {/* User Account & Cloud Sync Modal */}

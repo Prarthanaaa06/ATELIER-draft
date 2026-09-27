@@ -19,6 +19,7 @@ import {
   Palette,
   ChevronUp,
   Sparkles,
+  Edit2,
 } from 'lucide-react';
 import { Collection, Poem, ViewFilter, AppTheme } from '../types/poetry';
 import { UserProfile } from '../services/authService';
@@ -45,6 +46,7 @@ interface SidebarProps {
   onToggleDarkMode?: () => void;
   onOpenNewPoem: () => void;
   onOpenNewCollection: () => void;
+  onEditCollection?: (collection: Collection) => void;
   onResetData: () => void;
   onExportJson: () => void;
   onImportJson: (json: string) => void;
@@ -91,6 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleDarkMode,
   onOpenNewPoem,
   onOpenNewCollection,
+  onEditCollection,
   onResetData,
   onExportJson,
   onImportJson,
@@ -423,23 +426,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const count = poems.filter((p) => p.collectionId === col.id).length;
                 const isSelected = filter.type === 'collection' && filter.collectionId === col.id;
                 return (
-                  <button
+                  <div
                     key={col.id}
                     onClick={() => onSelectFilter({ type: 'collection', collectionId: col.id })}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs transition-colors ${
+                    className={`group/col w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs transition-colors cursor-pointer ${
                       isSelected
                         ? 'bg-paper-250 dark:bg-ink-800/80 text-paper-900 dark:text-white font-medium shadow-subtle'
                         : 'text-paper-600 dark:text-ink-400 hover:bg-paper-200/60 dark:hover:bg-ink-900 hover:text-paper-900 dark:hover:text-ink-200'
                     }`}
                   >
-                    <div className="flex items-center space-x-2 truncate pr-2">
+                    <div className="flex items-center space-x-2 truncate pr-2 flex-1 min-w-0">
                       <Folder className="w-3.5 h-3.5 shrink-0 opacity-70" />
                       <span className="truncate">{col.title}</span>
                     </div>
-                    <span className="text-[11px] font-mono text-paper-400 dark:text-ink-500">
-                      {count}
-                    </span>
-                  </button>
+                    <div className="flex items-center space-x-1 shrink-0">
+                      {onEditCollection && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditCollection(col);
+                          }}
+                          title={`Edit collection "${col.title}"`}
+                          className="opacity-0 group-hover/col:opacity-100 p-1 hover:text-amber-600 dark:hover:text-amber-400 rounded transition-opacity"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      )}
+                      <span className="text-[11px] font-mono text-paper-400 dark:text-ink-500">
+                        {count}
+                      </span>
+                    </div>
+                  </div>
                 );
               })}
           </div>
@@ -451,14 +469,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Poems List */}
         <div>
           <div className="px-2 py-1 flex items-center justify-between text-[11px] font-medium tracking-wider uppercase text-paper-500 dark:text-ink-500">
-            <span>
-              {filter.type === 'all'
-                ? 'Poems'
-                : activeCollection
-                ? activeCollection.title
-                : 'Collection'}
+            <span className="flex items-center space-x-1.5 truncate">
+              <span className="truncate">
+                {filter.type === 'all'
+                  ? 'Poems'
+                  : activeCollection
+                  ? activeCollection.title
+                  : 'Collection'}
+              </span>
+              {activeCollection && onEditCollection && (
+                <button
+                  type="button"
+                  onClick={() => onEditCollection(activeCollection)}
+                  className="hover:text-amber-600 dark:hover:text-amber-400 transition-colors p-0.5 rounded"
+                  title={`Edit collection "${activeCollection.title}"`}
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
+              )}
             </span>
-            <span className="text-[10px] font-mono">
+            <span className="text-[10px] font-mono shrink-0 ml-1">
               {filteredPoems.length} {filteredPoems.length === 1 ? 'piece' : 'pieces'}
             </span>
           </div>
