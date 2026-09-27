@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Collection, Poem, Draft, ViewFilter } from './types/poetry';
+import { Collection, Poem, Draft, ViewFilter, AppTheme } from './types/poetry';
 import { storageService } from './services/storageService';
 import { authService, UserProfile } from './services/authService';
 import { cloudSyncService, SyncStatus } from './services/cloudSyncService';
@@ -105,21 +105,33 @@ export const App: React.FC = () => {
   const [isDiffOpen, setIsDiffOpen] = useState(false);
   const [diffBaseDraftId, setDiffBaseDraftId] = useState<string | undefined>(undefined);
 
-  // Dark Mode
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
+  // --- Theme State (dark, light, brown, pastel) ---
+  const [currentTheme, setCurrentTheme] = useState<AppTheme>(() => storageService.getAppTheme());
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
+    storageService.saveAppTheme(currentTheme);
+    const root = document.documentElement;
+    root.setAttribute('data-theme', currentTheme);
+
+    if (currentTheme === 'dark') {
+      root.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
     }
-  }, [isDarkMode]);
+  }, [currentTheme]);
+
+  const handleSelectTheme = (theme: AppTheme) => {
+    setCurrentTheme(theme);
+    const names: Record<AppTheme, string> = {
+      brown: 'Brown (Warm Parchment)',
+      light: 'Light (Minimal Studio)',
+      dark: 'Dark (Midnight Ink)',
+      pastel: 'Pastel (Dreamy Reverie)',
+    };
+    showToast(`Theme switched to ${names[theme]}`);
+  };
+
+  const isDarkMode = currentTheme === 'dark';
 
   // --- Modals State ---
   const [isNewDraftModalOpen, setIsNewDraftModalOpen] = useState(false);
@@ -396,6 +408,13 @@ export const App: React.FC = () => {
         e.preventDefault();
         setIsZenMode((prev) => !prev);
       }
+      // Alt+T: Cycle Themes (Brown -> Light -> Dark -> Pastel)
+      if (e.altKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        const themes: AppTheme[] = ['brown', 'light', 'dark', 'pastel'];
+        const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+        handleSelectTheme(themes[nextIndex]);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -460,6 +479,8 @@ export const App: React.FC = () => {
           filter={filter}
           isCollapsed={isSidebarCollapsed}
           isDarkMode={isDarkMode}
+          currentTheme={currentTheme}
+          onSelectTheme={handleSelectTheme}
           currentUser={currentUser}
           syncStatus={syncStatus}
           lastSyncedTime={lastSyncedTime}
@@ -468,7 +489,7 @@ export const App: React.FC = () => {
           onSelectPoem={handleSelectPoem}
           onSelectFilter={setFilter}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+          onToggleDarkMode={() => handleSelectTheme(currentTheme === 'dark' ? 'brown' : 'dark')}
           onOpenNewPoem={() => setIsNewPoemModalOpen(true)}
           onOpenNewCollection={() => setIsNewCollectionModalOpen(true)}
           onResetData={handleResetData}
@@ -492,6 +513,8 @@ export const App: React.FC = () => {
           isLatestDraft={isLatestDraft}
           collection={activeCollection}
           isZenMode={isZenMode}
+          currentTheme={currentTheme}
+          onSelectTheme={handleSelectTheme}
           onToggleZenMode={() => setIsZenMode(!isZenMode)}
           onOpenNewDraftModal={() => setIsNewDraftModalOpen(true)}
           onToggleDiff={() => handleOpenDiff()}

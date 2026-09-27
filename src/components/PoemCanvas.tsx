@@ -16,8 +16,10 @@ import {
   Printer,
   Sparkles,
   RotateCcw,
+  Palette,
 } from 'lucide-react';
-import { Poem, Draft, Collection } from '../types/poetry';
+import { Poem, Draft, Collection, AppTheme } from '../types/poetry';
+import { ThemeSelectorMenu } from './ThemeSelectorMenu';
 
 interface PoemCanvasProps {
   poem: Poem;
@@ -25,6 +27,8 @@ interface PoemCanvasProps {
   isLatestDraft: boolean;
   collection?: Collection;
   isZenMode: boolean;
+  currentTheme?: AppTheme;
+  onSelectTheme?: (theme: AppTheme) => void;
   onToggleZenMode: () => void;
   onOpenNewDraftModal: () => void;
   onToggleDiff: () => void;
@@ -39,6 +43,8 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
   isLatestDraft,
   collection,
   isZenMode,
+  currentTheme,
+  onSelectTheme,
   onToggleZenMode,
   onOpenNewDraftModal,
   onToggleDiff,
@@ -51,6 +57,7 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
   const [editedStanzas, setEditedStanzas] = useState(selectedDraft.stanzas);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xl'>('normal');
   const [fontFamily, setFontFamily] = useState<'garamond' | 'newsreader'>('garamond');
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync edited stanzas when draft changes
@@ -139,6 +146,28 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
               {fontFamily === 'garamond' ? 'Cormorant' : 'Newsreader'}
             </button>
           </div>
+
+          {/* Theme Selector in Reading Toolbar */}
+          {onSelectTheme && currentTheme && (
+            <div className="relative">
+              <button
+                onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+                title={`Visual Theme: ${currentTheme} (Click to switch)`}
+                className="flex items-center space-x-1 px-2 py-1 rounded text-xs border border-paper-300 dark:border-ink-750 bg-paper-100/70 hover:bg-paper-200 dark:bg-ink-850 dark:hover:bg-ink-800 text-paper-700 dark:text-ink-200 transition-colors"
+              >
+                <Palette className="w-3.5 h-3.5 text-paper-600 dark:text-ink-400" />
+                <span className="hidden lg:inline capitalize text-[11px]">{currentTheme}</span>
+              </button>
+
+              <ThemeSelectorMenu
+                currentTheme={currentTheme}
+                onSelectTheme={onSelectTheme}
+                isOpen={isThemeMenuOpen}
+                onClose={() => setIsThemeMenuOpen(false)}
+                anchorPosition="top-right"
+              />
+            </div>
+          )}
 
           {/* Diff Button */}
           {poem.drafts.length > 1 && (

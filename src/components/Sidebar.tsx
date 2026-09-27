@@ -16,10 +16,14 @@ import {
   Upload,
   Feather,
   Cloud,
+  Palette,
+  ChevronUp,
+  Sparkles,
 } from 'lucide-react';
-import { Collection, Poem, ViewFilter } from '../types/poetry';
+import { Collection, Poem, ViewFilter, AppTheme } from '../types/poetry';
 import { UserProfile } from '../services/authService';
 import { SyncStatus } from '../services/cloudSyncService';
+import { ThemeSelectorMenu } from './ThemeSelectorMenu';
 
 interface SidebarProps {
   collections: Collection[];
@@ -27,7 +31,9 @@ interface SidebarProps {
   activePoemId: string | null;
   filter: ViewFilter;
   isCollapsed: boolean;
-  isDarkMode: boolean;
+  isDarkMode?: boolean;
+  currentTheme: AppTheme;
+  onSelectTheme: (theme: AppTheme) => void;
   currentUser?: UserProfile | null;
   syncStatus?: SyncStatus;
   lastSyncedTime?: Date | null;
@@ -36,7 +42,7 @@ interface SidebarProps {
   onSelectPoem: (poemId: string) => void;
   onSelectFilter: (filter: ViewFilter) => void;
   onToggleCollapse: () => void;
-  onToggleDarkMode: () => void;
+  onToggleDarkMode?: () => void;
   onOpenNewPoem: () => void;
   onOpenNewCollection: () => void;
   onResetData: () => void;
@@ -71,7 +77,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activePoemId,
   filter,
   isCollapsed,
-  isDarkMode,
+  isDarkMode = false,
+  currentTheme,
+  onSelectTheme,
   currentUser,
   syncStatus = 'guest',
   lastSyncedTime,
@@ -89,6 +97,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isCollectionsExpanded, setIsCollectionsExpanded] = useState(true);
+  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+
+  const getThemeIcon = (theme: AppTheme) => {
+    switch (theme) {
+      case 'dark':
+        return <Moon className="w-3.5 h-3.5 text-amber-400" />;
+      case 'light':
+        return <Sun className="w-3.5 h-3.5 text-sky-500" />;
+      case 'brown':
+        return <BookOpen className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />;
+      case 'pastel':
+        return <Sparkles className="w-3.5 h-3.5 text-purple-500" />;
+    }
+  };
+
+  const getThemeLabel = (theme: AppTheme) => {
+    switch (theme) {
+      case 'dark':
+        return 'Dark';
+      case 'light':
+        return 'Light';
+      case 'brown':
+        return 'Brown';
+      case 'pastel':
+        return 'Pastel';
+    }
+  };
 
   // Filter poems based on active collection and search query
   const filteredPoems = useMemo(() => {
@@ -194,13 +229,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           </button>
 
-          <button
-            onClick={onToggleDarkMode}
-            title={isDarkMode ? 'Paper Mode' : 'Ink Mode'}
-            className="p-2 text-paper-500 hover:text-paper-800 dark:text-ink-400 dark:hover:text-white rounded transition-colors"
-          >
-            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          {/* Theme Selector Button for Collapsed Bar */}
+          <div className="relative">
+            <button
+              onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+              title={`Theme: ${getThemeLabel(currentTheme)} (Click to switch)`}
+              className="p-2 text-paper-500 hover:text-paper-800 dark:text-ink-400 dark:hover:text-white rounded transition-colors"
+            >
+              <Palette className="w-4 h-4 text-paper-600 dark:text-ink-300" />
+            </button>
+
+            <ThemeSelectorMenu
+              currentTheme={currentTheme}
+              onSelectTheme={onSelectTheme}
+              isOpen={isThemeMenuOpen}
+              onClose={() => setIsThemeMenuOpen(false)}
+              anchorPosition="bottom-left"
+            />
+          </div>
         </div>
       </aside>
     );
@@ -476,15 +522,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Footer Utility Bar */}
       <div className="p-3 border-t border-paper-200 dark:border-ink-850 bg-paper-150/50 dark:bg-ink-900/50 text-xs">
         <div className="flex items-center justify-between">
-          {/* Dark / Light Mode Switch */}
-          <button
-            onClick={onToggleDarkMode}
-            className="flex items-center space-x-1.5 px-2 py-1 rounded hover:bg-paper-200 dark:hover:bg-ink-800 text-paper-600 dark:text-ink-400 hover:text-paper-900 dark:hover:text-white transition-colors"
-            title="Toggle theme (Warm Paper / Ink)"
-          >
-            {isDarkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-            <span className="text-[11px]">{isDarkMode ? 'Paper' : 'Ink'}</span>
-          </button>
+          {/* Multi-Theme Selector Popover */}
+          <div className="relative">
+            <button
+              onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg hover:bg-paper-200 dark:hover:bg-ink-800 text-paper-700 dark:text-ink-300 hover:text-paper-900 dark:hover:text-white transition-all border border-paper-300/60 dark:border-ink-800/80 shadow-2xs group"
+              title="Select Visual Theme: Dark, Light, Brown, Pastel"
+            >
+              {getThemeIcon(currentTheme)}
+              <span className="text-[11px] font-medium tracking-wide">
+                {getThemeLabel(currentTheme)}
+              </span>
+              <ChevronUp
+                className={`w-3 h-3 text-paper-400 dark:text-ink-500 transition-transform ${
+                  isThemeMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            <ThemeSelectorMenu
+              currentTheme={currentTheme}
+              onSelectTheme={onSelectTheme}
+              isOpen={isThemeMenuOpen}
+              onClose={() => setIsThemeMenuOpen(false)}
+              anchorPosition="bottom-left"
+            />
+          </div>
 
           {/* Archive Utilities */}
           <div className="flex items-center space-x-1">

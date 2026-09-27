@@ -2,16 +2,176 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================================
+   POETRY ARCHIVE MULTI-THEME ENGINE
+   Themes supported: 'brown' (warm), 'light', 'dark', 'pastel'
+   ========================================================================= */
+
+:root,
+[data-theme="brown"] {
+  /* Warm Heritage Parchment & Sepia Leather */
+  --paper-50: 250 246 238;   /* #FAF6EE */
+  --paper-100: 245 236 225;  /* #F5ECE1 */
+  --paper-150: 239 228 212;  /* #EFE4D4 */
+  --paper-200: 231 219 199;  /* #E7DBC7 */
+  --paper-250: 221 208 184;  /* #DDD0B8 */
+  --paper-300: 210 195 168;  /* #D2C3A8 */
+  --paper-400: 188 169 141;  /* #BCA98D */
+  --paper-500: 151 131 104;  /* #978368 */
+  --paper-600: 113 95 73;    /* #715F49 */
+  --paper-700: 78 63 46;     /* #4E3F2E */
+  --paper-800: 52 36 22;     /* #342416 */
+  --paper-900: 33 20 10;     /* #21140A */
+  --paper-950: 22 11 4;      /* #160B04 */
+
+  /* Harmonized surface colors */
+  --stone-50: 250 246 238;
+  --stone-100: 245 236 225;
+  --stone-200: 231 219 199;
+  --stone-300: 210 195 168;
+  --stone-400: 188 169 141;
+  --stone-500: 151 131 104;
+  --stone-600: 113 95 73;
+  --stone-700: 78 63 46;
+  --stone-800: 52 36 22;
+  --stone-850: 42 28 16;
+  --stone-900: 33 20 10;
+  --stone-950: 22 11 4;
+
+  /* Ink defaults in case used in light mode */
+  --ink-950: 11 12 14;
+  --ink-900: 18 19 22;
+  --ink-850: 23 24 29;
+  --ink-800: 30 32 38;
+  --ink-750: 37 39 49;
+  --ink-700: 42 44 53;
+  --ink-600: 61 65 78;
+  --ink-500: 92 98 116;
+  --ink-400: 138 146 166;
+  --ink-300: 182 189 207;
+  --ink-200: 221 226 237;
+  --ink-100: 241 243 249;
+  --ink-50: 250 251 252;
+
+  --atelier-amber: 184 134 11;
+  --theme-selection-bg: #E7DBC7;
+  --theme-selection-text: #21140A;
+}
+
+[data-theme="light"] {
+  /* Minimalist Clean Alabaster Studio */
+  --paper-50: 255 255 255;   /* #FFFFFF */
+  --paper-100: 248 250 252;  /* #F8FAFC */
+  --paper-150: 241 245 249;  /* #F1F5F9 */
+  --paper-200: 226 232 240;  /* #E2E8F0 */
+  --paper-250: 212 221 232;  /* #D4DDE8 */
+  --paper-300: 203 213 225;  /* #CBD5E1 */
+  --paper-400: 148 163 184;  /* #94A3B8 */
+  --paper-500: 100 116 139;  /* #64748B */
+  --paper-600: 71 85 105;    /* #475569 */
+  --paper-700: 51 65 85;     /* #334155 */
+  --paper-800: 30 41 59;     /* #1E293B */
+  --paper-900: 15 23 42;     /* #0F172A */
+  --paper-950: 2 6 23;       /* #020617 */
+
+  --stone-50: 255 255 255;
+  --stone-100: 248 250 252;
+  --stone-200: 226 232 240;
+  --stone-300: 203 213 225;
+  --stone-400: 148 163 184;
+  --stone-500: 100 116 139;
+  --stone-600: 71 85 105;
+  --stone-700: 51 65 85;
+  --stone-800: 30 41 59;
+  --stone-850: 20 28 44;
+  --stone-900: 15 23 42;
+  --stone-950: 2 6 23;
+
+  --atelier-amber: 37 99 235;
+  --theme-selection-bg: #E2E8F0;
+  --theme-selection-text: #0F172A;
+}
+
+[data-theme="pastel"] {
+  /* Dreamy Twilight Lavender & Soft Blush */
+  --paper-50: 252 248 253;   /* #FCF8FD */
+  --paper-100: 248 240 250;  /* #F8F0FA */
+  --paper-150: 242 230 245;  /* #F2E6F5 */
+  --paper-200: 233 217 238;  /* #E9D9EE */
+  --paper-250: 222 201 228;  /* #DEC9E4 */
+  --paper-300: 209 184 218;  /* #D1B8DA */
+  --paper-400: 178 147 189;  /* #B293BD */
+  --paper-500: 147 114 159;  /* #93729F */
+  --paper-600: 115 84 126;   /* #73547E */
+  --paper-700: 84 57 94;     /* #54395E */
+  --paper-800: 56 36 65;     /* #382441 */
+  --paper-900: 36 19 44;     /* #24132C */
+  --paper-950: 22 9 28;      /* #16091C */
+
+  --stone-50: 252 248 253;
+  --stone-100: 248 240 250;
+  --stone-200: 233 217 238;
+  --stone-300: 209 184 218;
+  --stone-400: 178 147 189;
+  --stone-500: 147 114 159;
+  --stone-600: 115 84 126;
+  --stone-700: 84 57 94;
+  --stone-800: 56 36 65;
+  --stone-850: 45 27 53;
+  --stone-900: 36 19 44;
+  --stone-950: 22 9 28;
+
+  --atelier-amber: 168 85 247;
+  --theme-selection-bg: #E9D9EE;
+  --theme-selection-text: #24132C;
+}
+
+[data-theme="dark"],
+.dark {
+  /* Midnight Obsidian & Lunar Ink */
+  --ink-950: 11 12 14;       /* #0B0C0E */
+  --ink-900: 18 19 22;       /* #121316 */
+  --ink-850: 23 24 29;       /* #17181D */
+  --ink-800: 30 32 38;       /* #1E2026 */
+  --ink-750: 37 39 49;       /* #252731 */
+  --ink-700: 42 44 53;       /* #2A2C35 */
+  --ink-600: 61 65 78;       /* #3D414E */
+  --ink-500: 92 98 116;      /* #5C6274 */
+  --ink-400: 138 146 166;    /* #8A92A6 */
+  --ink-300: 182 189 207;    /* #B6BDCF */
+  --ink-200: 221 226 237;    /* #DDE2ED */
+  --ink-100: 241 243 249;    /* #F1F3F9 */
+  --ink-50: 250 251 252;     /* #FAFBFC */
+
+  --stone-950: 11 12 14;
+  --stone-900: 18 19 22;
+  --stone-850: 23 24 29;
+  --stone-800: 30 32 38;
+  --stone-700: 42 44 53;
+  --stone-600: 61 65 78;
+  --stone-500: 92 98 116;
+  --stone-400: 138 146 166;
+  --stone-300: 182 189 207;
+  --stone-200: 221 226 237;
+  --stone-100: 241 243 249;
+  --stone-50: 250 251 252;
+
+  --atelier-amber: 245 158 11;
+  --theme-selection-bg: #2A2C35;
+  --theme-selection-text: #F1F3F9;
+}
+
 @layer base {
   html {
     font-feature-settings: "liga" 1, "kern" 1, "onum" 1;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 
   ::selection {
-    background-color: #E2DDCF;
-    color: #181613;
+    background-color: var(--theme-selection-bg, #E2DDCF);
+    color: var(--theme-selection-text, #181613);
   }
 
   .dark ::selection {
@@ -31,20 +191,20 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(150, 140, 130, 0.2);
+  background: rgba(150, 140, 130, 0.25);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(150, 140, 130, 0.4);
+  background: rgba(150, 140, 130, 0.45);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: rgba(100, 110, 130, 0.25);
+  background: rgba(100, 110, 130, 0.3);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 110, 130, 0.45);
+  background: rgba(100, 110, 130, 0.5);
 }
 
 /* Distraction free reading transitions */

@@ -33,4 +33,6 @@ export type ViewFilter = {
   collectionId?: string;
 };
 
+export type AppTheme = 'dark' | 'light' | 'brown' | 'pastel';
+
 export type ReadingModeTheme = 'warm' | 'cream' | 'dark' | 'contrast';

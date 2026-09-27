@@ -1,4 +1,4 @@
-import { Collection, Poem, Draft } from '../types/poetry';
+import { Collection, Poem, Draft, AppTheme } from '../types/poetry';
 import { INITIAL_COLLECTIONS, INITIAL_POEMS } from '../data/mockPoetry';
 
 const STORAGE_KEYS = {
@@ -215,6 +215,25 @@ class StorageService {
     } catch {
       return false;
     }
+  }
+
+  // --- Theme ---
+  getAppTheme(): AppTheme {
+    if (!this.isBrowser()) return 'brown';
+    const stored = localStorage.getItem('poetry_archive_theme_v2') as AppTheme;
+    if (['dark', 'light', 'brown', 'pastel'].includes(stored)) {
+      return stored;
+    }
+    // Check legacy theme setting
+    const legacy = localStorage.getItem(STORAGE_KEYS.THEME);
+    if (legacy === 'dark') return 'dark';
+    return 'brown';
+  }
+
+  saveAppTheme(theme: AppTheme): void {
+    if (!this.isBrowser()) return;
+    localStorage.setItem('poetry_archive_theme_v2', theme);
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
   }
 }
 
