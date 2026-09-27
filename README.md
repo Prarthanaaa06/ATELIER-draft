@@ -1,6 +1,6 @@
-# Poetry Archive — Minimalist Anthology & Revision Atelier
+# ATELIER-draft — Poetry Archive & Revision Atelier
 
-A minimalist manuscript archive, revision history atelier, and reader crafted for poets and writers. Features multi-version draft timelines, side-by-side stanza diffing, collections, and real-time cloud synchronization with **Google Sign-In** & **Cloud Firestore**.
+A minimalist manuscript archive, revision history atelier, and reader crafted for poets and writers. Features multi-version draft timelines, side-by-side stanza diffing, collections, editable titles, custom themes (Dark, Light, Warm Brown, Pastel), and real-time cloud synchronization with **Google Sign-In** & **Cloud Firestore**.
 
 ---
 
