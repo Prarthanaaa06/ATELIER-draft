@@ -93,37 +93,37 @@
 }
 
 [data-theme="pastel"] {
-  /* Dreamy Twilight Lavender & Soft Blush */
-  --paper-50: 252 248 253;   /* #FCF8FD */
-  --paper-100: 248 240 250;  /* #F8F0FA */
-  --paper-150: 242 230 245;  /* #F2E6F5 */
-  --paper-200: 233 217 238;  /* #E9D9EE */
-  --paper-250: 222 201 228;  /* #DEC9E4 */
-  --paper-300: 209 184 218;  /* #D1B8DA */
-  --paper-400: 178 147 189;  /* #B293BD */
-  --paper-500: 147 114 159;  /* #93729F */
-  --paper-600: 115 84 126;   /* #73547E */
-  --paper-700: 84 57 94;     /* #54395E */
-  --paper-800: 56 36 65;     /* #382441 */
-  --paper-900: 36 19 44;     /* #24132C */
-  --paper-950: 22 9 28;      /* #16091C */
+  /* Luminous Sakura & French Lavender Atelier */
+  --paper-50: 255 253 254;   /* #FFFDFE - Luminous, crisp pearl canvas */
+  --paper-100: 247 241 248;  /* #F7F1F8 - Delicate pale lavender-rose mist for panels */
+  --paper-150: 241 231 243;  /* #F1E7F3 - Soft hover surface */
+  --paper-200: 233 218 236;  /* #E9DAEC - Active list items / cards */
+  --paper-250: 224 204 228;  /* #E0CCE4 - Selected pills / badges */
+  --paper-300: 212 184 219;  /* #D4B8DB - Defined, elegant panel borders */
+  --paper-400: 186 149 195;  /* #BA95C3 - Outline accents */
+  --paper-500: 145 105 156;  /* #91699C - Clear metadata & labels (high contrast) */
+  --paper-600: 113 71 124;   /* #71477C - Secondary text & subtitles */
+  --paper-700: 83 44 94;     /* #532C5E - Prominent headings & body text */
+  --paper-800: 56 24 66;     /* #381842 - Deep rich damson stanzas */
+  --paper-900: 34 11 42;     /* #220B2A - Deepest velvet plum (maximum legibility) */
+  --paper-950: 21 5 28;      /* #15051C - Ink black accent */
 
-  --stone-50: 252 248 253;
-  --stone-100: 248 240 250;
-  --stone-200: 233 217 238;
-  --stone-300: 209 184 218;
-  --stone-400: 178 147 189;
-  --stone-500: 147 114 159;
-  --stone-600: 115 84 126;
-  --stone-700: 84 57 94;
-  --stone-800: 56 36 65;
-  --stone-850: 45 27 53;
-  --stone-900: 36 19 44;
-  --stone-950: 22 9 28;
+  --stone-50: 255 253 254;
+  --stone-100: 247 241 248;
+  --stone-200: 233 218 236;
+  --stone-300: 212 184 219;
+  --stone-400: 186 149 195;
+  --stone-500: 145 105 156;
+  --stone-600: 113 71 124;
+  --stone-700: 83 44 94;
+  --stone-800: 56 24 66;
+  --stone-850: 44 18 53;
+  --stone-900: 34 11 42;
+  --stone-950: 21 5 28;
 
-  --atelier-amber: 168 85 247;
-  --theme-selection-bg: #E9D9EE;
-  --theme-selection-text: #24132C;
+  --atelier-amber: 217 70 239; /* #D946EF - Blooming orchid-magenta accent */
+  --theme-selection-bg: #FCE7F3;
+  --theme-selection-text: #831843;
 }
 
 [data-theme="dark"],

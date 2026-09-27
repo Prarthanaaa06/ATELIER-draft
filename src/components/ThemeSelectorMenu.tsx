@@ -43,11 +43,11 @@ export const THEME_OPTIONS: ThemeOption[] = [
   {
     id: 'pastel',
     name: 'Pastel',
-    subtitle: 'Twilight Lavender & Blush',
-    badge: 'Poetic',
-    description: 'Dreamy soft lavender mist, delicate orchid borders, and deep dusk plum verse.',
-    icon: <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />,
-    dots: ['#FAF5FA', '#E4D2E8', '#3A2444', '#9333EA'],
+    subtitle: 'Sakura & French Lavender',
+    badge: 'Dreamy',
+    description: 'Luminous pearl canvas, delicate lilac-rose mist, crisp velvet damson verse, and blooming orchid accents.',
+    icon: <Sparkles className="w-4 h-4 text-fuchsia-600 dark:text-fuchsia-400" />,
+    dots: ['#FFFDFE', '#E9DAEC', '#220B2A', '#D946EF'],
   },
 ];
 
