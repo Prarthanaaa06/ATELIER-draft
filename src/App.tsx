@@ -20,6 +20,7 @@ import { EditCollectionModal } from './components/EditCollectionModal';
 import { UserAccountModal } from './components/UserAccountModal';
 import { OrganizeImportModal } from './components/OrganizeImportModal';
 import { DropZoneOverlay } from './components/DropZoneOverlay';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 
 export const App: React.FC = () => {
   // --- Persistent & Core State ---
@@ -138,6 +139,7 @@ export const App: React.FC = () => {
   const [isNewDraftModalOpen, setIsNewDraftModalOpen] = useState(false);
   const [isNewPoemModalOpen, setIsNewPoemModalOpen] = useState(false);
   const [isNewCollectionModalOpen, setIsNewCollectionModalOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
   const [isEditCollectionOpen, setIsEditCollectionOpen] = useState(false);
 
@@ -430,35 +432,137 @@ export const App: React.FC = () => {
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept when inside inputs/textareas unless specific shortcuts
-      const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      const isInput =
+        e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
 
-      // Ctrl+S or Cmd+S: Save/Commit Draft
+      // Esc: Dismiss modals if any are open
+      if (e.key === 'Escape') {
+        if (isShortcutsModalOpen) {
+          setIsShortcutsModalOpen(false);
+          return;
+        }
+        if (isOrganizeModalOpen) {
+          setIsOrganizeModalOpen(false);
+          return;
+        }
+        if (isAccountModalOpen) {
+          setIsAccountModalOpen(false);
+          return;
+        }
+        if (isEditCollectionOpen) {
+          setIsEditCollectionOpen(false);
+          return;
+        }
+        if (isNewCollectionModalOpen) {
+          setIsNewCollectionModalOpen(false);
+          return;
+        }
+        if (isNewPoemModalOpen) {
+          setIsNewPoemModalOpen(false);
+          return;
+        }
+        if (isNewDraftModalOpen) {
+          setIsNewDraftModalOpen(false);
+          return;
+        }
+        if (isDiffOpen) {
+          setIsDiffOpen(false);
+          return;
+        }
+        if (isZenMode) {
+          setIsZenMode(false);
+          return;
+        }
+      }
+
+      // ? or Shift+/: Open Keyboard Shortcuts modal (when outside inputs)
+      if (!isInput && (e.key === '?' || (e.shiftKey && e.key === '/'))) {
+        e.preventDefault();
+        setIsShortcutsModalOpen((prev) => !prev);
+        return;
+      }
+
+      // Ctrl+K or Cmd+K: Focus search bar in Sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        if (isSidebarCollapsed) {
+          setIsSidebarCollapsed(false);
+        }
+        setTimeout(() => {
+          const searchInput = document.getElementById('atelier-sidebar-search') as HTMLInputElement | null;
+          searchInput?.focus();
+          searchInput?.select();
+        }, 60);
+        return;
+      }
+
+      // Ctrl+B or Cmd+B: Toggle Sidebar collapse
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setIsSidebarCollapsed((prev) => !prev);
+        return;
+      }
+
+      // Ctrl+Shift+N or Cmd+Shift+N: New Collection
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setIsNewCollectionModalOpen(true);
+        return;
+      }
+
+      // Ctrl+N or Cmd+N: New Poem
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        setIsNewPoemModalOpen(true);
+        return;
+      }
+
+      // Ctrl+S or Cmd+S: Save / Commit Draft Revision
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         setIsNewDraftModalOpen(true);
+        return;
       }
+
       // Ctrl+D or Cmd+D (outside input): Toggle Diff View
       if (!isInput && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         setIsDiffOpen((prev) => !prev);
+        return;
       }
-      // Ctrl+Shift+Z: Toggle Zen Mode
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') {
+
+      // Alt+Z or F11: Toggle Distraction-free Zen Mode
+      if ((e.altKey && e.key.toLowerCase() === 'z') || e.key === 'F11') {
         e.preventDefault();
         setIsZenMode((prev) => !prev);
+        return;
       }
+
       // Alt+T: Cycle Themes (Brown -> Light -> Dark -> Pastel)
       if (e.altKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
         const themes: AppTheme[] = ['brown', 'light', 'dark', 'pastel'];
         const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
         handleSelectTheme(themes[nextIndex]);
+        return;
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [
+    currentTheme,
+    isSidebarCollapsed,
+    isZenMode,
+    isDiffOpen,
+    isShortcutsModalOpen,
+    isOrganizeModalOpen,
+    isAccountModalOpen,
+    isEditCollectionOpen,
+    isNewCollectionModalOpen,
+    isNewPoemModalOpen,
+    isNewDraftModalOpen,
+  ]);
 
   return (
     <div
@@ -526,6 +630,7 @@ export const App: React.FC = () => {
           lastSyncedTime={lastSyncedTime}
           onOpenAccountModal={() => setIsAccountModalOpen(true)}
           onOpenFilePicker={() => poetryFileInputRef.current?.click()}
+          onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
           onSelectPoem={handleSelectPoem}
           onSelectFilter={setFilter}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -653,6 +758,12 @@ export const App: React.FC = () => {
         analysis={fileAnalysis}
         existingCollections={collections}
         onConfirmImport={handleConfirmImport}
+      />
+
+      {/* Keyboard Shortcuts Cheat Sheet Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
       />
 
       {/* Toast Feedback Notification */}

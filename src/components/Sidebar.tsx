@@ -20,6 +20,7 @@ import {
   ChevronUp,
   Sparkles,
   Edit2,
+  Keyboard,
 } from 'lucide-react';
 import { Collection, Poem, ViewFilter, AppTheme } from '../types/poetry';
 import { UserProfile } from '../services/authService';
@@ -40,6 +41,7 @@ interface SidebarProps {
   lastSyncedTime?: Date | null;
   onOpenAccountModal?: () => void;
   onOpenFilePicker?: () => void;
+  onOpenShortcuts?: () => void;
   onSelectPoem: (poemId: string) => void;
   onSelectFilter: (filter: ViewFilter) => void;
   onToggleCollapse: () => void;
@@ -87,6 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   lastSyncedTime,
   onOpenAccountModal,
   onOpenFilePicker,
+  onOpenShortcuts,
   onSelectPoem,
   onSelectFilter,
   onToggleCollapse,
@@ -250,6 +253,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               anchorPosition="bottom-left"
             />
           </div>
+
+          {/* Keyboard Shortcuts Button */}
+          {onOpenShortcuts && (
+            <button
+              onClick={onOpenShortcuts}
+              title="Keyboard Shortcuts (?)"
+              className="p-2 text-paper-500 hover:text-paper-800 dark:text-ink-400 dark:hover:text-white rounded transition-colors"
+            >
+              <Keyboard className="w-4 h-4 text-paper-600 dark:text-ink-300" />
+            </button>
+          )}
         </div>
       </aside>
     );
@@ -353,7 +367,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onOpenNewPoem}
             className="flex items-center justify-center space-x-1.5 px-2.5 py-2 bg-paper-900 hover:bg-black text-paper-50 dark:bg-ink-100 dark:text-ink-950 dark:hover:bg-white rounded-lg transition-colors text-xs font-medium tracking-wide shadow-subtle"
-            title="Create a new blank poem draft"
+            title="Create a new blank poem draft (Ctrl+N)"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Poem</span>
@@ -372,8 +386,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-paper-400 dark:text-ink-500" />
           <input
+            id="atelier-sidebar-search"
             type="text"
-            placeholder="Search titles, stanzas, tags..."
+            placeholder="Search titles, stanzas, tags... (Ctrl+K)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 text-xs bg-paper-50 dark:bg-ink-900 border border-paper-300 dark:border-ink-800 rounded placeholder-paper-400 dark:placeholder-ink-600 focus:outline-none focus:ring-1 focus:ring-paper-600 dark:focus:ring-ink-400 transition-colors"
@@ -625,6 +640,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
+            {onOpenShortcuts && (
+              <button
+                onClick={onOpenShortcuts}
+                title="Keyboard Shortcuts Guide (?)"
+                className="p-1 rounded hover:bg-paper-200 dark:hover:bg-ink-800 text-paper-500 dark:text-ink-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
+              >
+                <Keyboard className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>

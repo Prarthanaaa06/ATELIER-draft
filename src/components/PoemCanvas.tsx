@@ -16,6 +16,7 @@ import {
   Printer,
   Sparkles,
   RotateCcw,
+  RotateCw,
   Palette,
   Edit2,
   X,
@@ -81,10 +82,20 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- Text Section Highlighting State ---
+  // --- Text Editing Undo / Redo History Stack ---
+  const [textHistory, setTextHistory] = useState<string[]>([selectedDraft.stanzas]);
+  const [textHistoryIndex, setTextHistoryIndex] = useState(0);
+  const textHistoryTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // --- Text Section Highlighting State & History Stack ---
   const [textHighlights, setTextHighlights] = useState<TextHighlight[]>(() =>
     storageService.getTextHighlights(poem.id, selectedDraft.id)
   );
+  const [highlightHistory, setHighlightHistory] = useState<TextHighlight[][]>(() => [
+    storageService.getTextHighlights(poem.id, selectedDraft.id),
+  ]);
+  const [highlightHistoryIndex, setHighlightHistoryIndex] = useState(0);
+
   const [isHighlightBarOpen, setIsHighlightBarOpen] = useState(false);
   const [activeHighlightColor, setActiveHighlightColor] = useState<HighlightColorId>('amber');
   const [floatingMenu, setFloatingMenu] = useState<{
@@ -100,7 +111,10 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
 
   // Sync text highlights when poem or selected draft changes
   useEffect(() => {
-    setTextHighlights(storageService.getTextHighlights(poem.id, selectedDraft.id));
+    const currentHls = storageService.getTextHighlights(poem.id, selectedDraft.id);
+    setTextHighlights(currentHls);
+    setHighlightHistory([currentHls]);
+    setHighlightHistoryIndex(0);
     setFloatingMenu(null);
   }, [poem.id, selectedDraft.id]);
 
@@ -124,19 +138,191 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
   // Sync edited stanzas when draft changes
   useEffect(() => {
     setEditedStanzas(selectedDraft.stanzas);
+    setTextHistory([selectedDraft.stanzas]);
+    setTextHistoryIndex(0);
     setIsEditing(false);
   }, [selectedDraft.id]);
 
-  // Handle ESC key for Zen Mode
+  // --- Handle Text Changes with History Snapshotting ---
+  const handleTextChange = (newStanzas: string) => {
+    setEditedStanzas(newStanzas);
+    onUpdateDraftContent(newStanzas);
+
+    if (textHistoryTimerRef.current) {
+      clearTimeout(textHistoryTimerRef.current);
+    }
+
+    textHistoryTimerRef.current = setTimeout(() => {
+      setTextHistory((prev) => {
+        const next = prev.slice(0, textHistoryIndex + 1);
+        if (next[next.length - 1] === newStanzas) return prev;
+        return [...next, newStanzas];
+      });
+      setTextHistoryIndex((prev) => prev + 1);
+    }, 350);
+  };
+
+  const handleUndoText = () => {
+    if (textHistoryTimerRef.current) {
+      clearTimeout(textHistoryTimerRef.current);
+    }
+    if (textHistoryIndex > 0) {
+      const targetIndex = textHistoryIndex - 1;
+      const targetText = textHistory[targetIndex];
+      setTextHistoryIndex(targetIndex);
+      setEditedStanzas(targetText);
+      onUpdateDraftContent(targetText);
+    }
+  };
+
+  const handleRedoText = () => {
+    if (textHistoryTimerRef.current) {
+      clearTimeout(textHistoryTimerRef.current);
+    }
+    if (textHistoryIndex < textHistory.length - 1) {
+      const targetIndex = textHistoryIndex + 1;
+      const targetText = textHistory[targetIndex];
+      setTextHistoryIndex(targetIndex);
+      setEditedStanzas(targetText);
+      onUpdateDraftContent(targetText);
+    }
+  };
+
+  // Helper to apply highlights with history
+  const applyHighlightsWithHistory = (updated: TextHighlight[]) => {
+    setTextHighlights(updated);
+    storageService.saveTextHighlights(poem.id, updated, selectedDraft.id);
+    setHighlightHistory((prev) => {
+      const next = prev.slice(0, highlightHistoryIndex + 1);
+      return [...next, updated];
+    });
+    setHighlightHistoryIndex((prev) => prev + 1);
+  };
+
+  const handleUndoHighlight = () => {
+    if (highlightHistoryIndex > 0) {
+      const targetIndex = highlightHistoryIndex - 1;
+      const targetHls = highlightHistory[targetIndex];
+      setHighlightHistoryIndex(targetIndex);
+      setTextHighlights(targetHls);
+      storageService.saveTextHighlights(poem.id, targetHls, selectedDraft.id);
+    }
+  };
+
+  const handleRedoHighlight = () => {
+    if (highlightHistoryIndex < highlightHistory.length - 1) {
+      const targetIndex = highlightHistoryIndex + 1;
+      const targetHls = highlightHistory[targetIndex];
+      setHighlightHistoryIndex(targetIndex);
+      setTextHighlights(targetHls);
+      storageService.saveTextHighlights(poem.id, targetHls, selectedDraft.id);
+    }
+  };
+
+  // Unified Undo / Redo status & actions
+  const canUndo = isEditing
+    ? textHistoryIndex > 0
+    : highlightHistoryIndex > 0 || textHistoryIndex > 0;
+
+  const canRedo = isEditing
+    ? textHistoryIndex < textHistory.length - 1
+    : highlightHistoryIndex < highlightHistory.length - 1 || textHistoryIndex < textHistory.length - 1;
+
+  const handleUndo = () => {
+    if (isEditing) {
+      handleUndoText();
+    } else if (highlightHistoryIndex > 0) {
+      handleUndoHighlight();
+    } else if (textHistoryIndex > 0) {
+      handleUndoText();
+    }
+  };
+
+  const handleRedo = () => {
+    if (isEditing) {
+      handleRedoText();
+    } else if (highlightHistoryIndex < highlightHistory.length - 1) {
+      handleRedoHighlight();
+    } else if (textHistoryIndex < textHistory.length - 1) {
+      handleRedoText();
+    }
+  };
+
+  // Canvas Keyboard Shortcuts (Undo, Redo, Esc, Ctrl+E, Alt+H)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isZenMode) {
-        onToggleZenMode();
+      // Escape: Dismiss active contextual overlays
+      if (e.key === 'Escape') {
+        if (isEditingTitle) {
+          handleCancelTitleEdit();
+          return;
+        }
+        if (floatingMenu) {
+          setFloatingMenu(null);
+          return;
+        }
+        if (isHighlightBarOpen) {
+          setIsHighlightBarOpen(false);
+          return;
+        }
+        if (isZenMode) {
+          onToggleZenMode();
+          return;
+        }
+      }
+
+      // Ctrl+Z / Cmd+Z: Undo (or Redo if Shift is held)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+        return;
+      }
+
+      // Ctrl+Y / Cmd+Y: Redo
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      // Ctrl+E / Cmd+E: Toggle Reading / Edit View
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+        if (isLatestDraft) {
+          e.preventDefault();
+          setIsEditing((prev) => !prev);
+          return;
+        }
+      }
+
+      // Alt+H: Toggle Highlighter palette
+      if (e.altKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        setIsHighlightBarOpen((prev) => !prev);
+        return;
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isZenMode, onToggleZenMode]);
+  }, [
+    isZenMode,
+    onToggleZenMode,
+    isEditing,
+    isLatestDraft,
+    isEditingTitle,
+    floatingMenu,
+    isHighlightBarOpen,
+    canUndo,
+    canRedo,
+    textHistoryIndex,
+    textHistory,
+    highlightHistoryIndex,
+    highlightHistory,
+  ]);
 
   // Compute metrics
   const lines = (isEditing ? editedStanzas : selectedDraft.stanzas).split('\n');
@@ -260,8 +446,7 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
     };
 
     const updated = addOrUpdateHighlight(textHighlights, newHl);
-    setTextHighlights(updated);
-    storageService.saveTextHighlights(poem.id, updated, selectedDraft.id);
+    applyHighlightsWithHistory(updated);
 
     // Clear browser text selection
     window.getSelection()?.removeAllRanges();
@@ -272,14 +457,12 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
     if (!floatingMenu?.activeHighlightId) return;
 
     const updated = removeHighlightById(textHighlights, floatingMenu.activeHighlightId);
-    setTextHighlights(updated);
-    storageService.saveTextHighlights(poem.id, updated, selectedDraft.id);
+    applyHighlightsWithHistory(updated);
     setFloatingMenu(null);
   };
 
   const handleClearAllHighlights = () => {
-    setTextHighlights([]);
-    storageService.clearTextHighlights(poem.id, selectedDraft.id);
+    applyHighlightsWithHistory([]);
     setFloatingMenu(null);
   };
 
@@ -384,11 +567,39 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
             )}
           </button>
 
+          {/* Undo & Redo Controls */}
+          <div className="flex items-center space-x-0.5 border border-paper-300 dark:border-ink-750 rounded px-1 py-0.5 bg-paper-100/70 dark:bg-ink-850">
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              title="Undo (Ctrl+Z)"
+              className={`p-1 rounded transition-colors ${
+                canUndo
+                  ? 'text-paper-700 dark:text-ink-200 hover:bg-paper-200 dark:hover:bg-ink-700 cursor-pointer'
+                  : 'text-paper-300 dark:text-ink-700 cursor-not-allowed'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={!canRedo}
+              title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
+              className={`p-1 rounded transition-colors ${
+                canRedo
+                  ? 'text-paper-700 dark:text-ink-200 hover:bg-paper-200 dark:hover:bg-ink-700 cursor-pointer'
+                  : 'text-paper-300 dark:text-ink-700 cursor-not-allowed'
+              }`}
+            >
+              <RotateCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Diff Button */}
           {poem.drafts.length > 1 && (
             <button
               onClick={onToggleDiff}
-              title="Compare drafts and view line diffs"
+              title="Compare drafts and view line diffs (Ctrl+D)"
               className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded text-xs border border-paper-300 dark:border-ink-750 bg-paper-100/70 hover:bg-paper-200 dark:bg-ink-850 dark:hover:bg-ink-800 text-paper-700 dark:text-ink-200 transition-colors"
             >
               <GitCompare className="w-3.5 h-3.5" />
@@ -436,7 +647,7 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
           {/* Distraction Free / Zen Mode */}
           <button
             onClick={onToggleZenMode}
-            title={isZenMode ? 'Exit Zen Mode (Esc)' : 'Distraction-Free Zen Mode'}
+            title={isZenMode ? 'Exit Zen Mode (Esc / Alt+Z)' : 'Distraction-Free Zen Mode (Alt+Z)'}
             className="p-1.5 rounded text-paper-500 hover:text-paper-900 dark:text-ink-400 dark:hover:text-white hover:bg-paper-200 dark:hover:bg-ink-800 transition-colors"
           >
             {isZenMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -608,6 +819,7 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
                 <button
                   onClick={() => setIsEditing(!isEditing)}
                   className="flex items-center space-x-1 text-xs text-paper-600 dark:text-ink-400 hover:text-paper-950 dark:hover:text-white px-2 py-0.5 rounded hover:bg-paper-200/60 dark:hover:bg-ink-800 transition-colors"
+                  title={isEditing ? 'Switch to Reading View (Ctrl+E)' : 'Edit Verse (Ctrl+E)'}
                 >
                   {isEditing ? (
                     <>
@@ -640,10 +852,7 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
               <textarea
                 ref={textareaRef}
                 value={editedStanzas}
-                onChange={(e) => {
-                  setEditedStanzas(e.target.value);
-                  onUpdateDraftContent(e.target.value);
-                }}
+                onChange={(e) => handleTextChange(e.target.value)}
                 rows={Math.max(14, editedStanzas.split('\n').length + 2)}
                 className={`w-full bg-transparent border-none focus:outline-none resize-none poem-stanza-text text-paper-900 dark:text-ink-100 ${
                   fontSize === 'normal'
@@ -656,12 +865,45 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
                 autoFocus
               />
               <div className="mt-4 pt-4 border-t border-paper-200 dark:border-ink-800 flex items-center justify-between no-print">
-                <span className="text-xs text-paper-500 dark:text-ink-400">
-                  Editing live working copy
-                </span>
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs text-paper-500 dark:text-ink-400">
+                    Editing live working copy
+                  </span>
+                  <div className="flex items-center space-x-1 border border-paper-200 dark:border-ink-800 rounded px-1.5 py-0.5 bg-paper-100/70 dark:bg-ink-850">
+                    <button
+                      type="button"
+                      onClick={handleUndoText}
+                      disabled={textHistoryIndex <= 0}
+                      className={`flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                        textHistoryIndex > 0
+                          ? 'text-paper-700 dark:text-ink-200 hover:bg-paper-200 dark:hover:bg-ink-750 cursor-pointer'
+                          : 'text-paper-300 dark:text-ink-700 cursor-not-allowed'
+                      }`}
+                      title="Undo text change (Ctrl+Z)"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Undo</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRedoText}
+                      disabled={textHistoryIndex >= textHistory.length - 1}
+                      className={`flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                        textHistoryIndex < textHistory.length - 1
+                          ? 'text-paper-700 dark:text-ink-200 hover:bg-paper-200 dark:hover:bg-ink-750 cursor-pointer'
+                          : 'text-paper-300 dark:text-ink-700 cursor-not-allowed'
+                      }`}
+                      title="Redo text change (Ctrl+Y / Ctrl+Shift+Z)"
+                    >
+                      <RotateCw className="w-3 h-3" />
+                      <span>Redo</span>
+                    </button>
+                  </div>
+                </div>
                 <button
                   onClick={onOpenNewDraftModal}
-                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-paper-900 hover:bg-black text-paper-50 dark:bg-ink-100 dark:text-ink-950 rounded text-xs font-medium tracking-wide transition-colors"
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-paper-900 hover:bg-black text-paper-50 dark:bg-ink-100 dark:text-ink-950 rounded text-xs font-medium tracking-wide transition-colors shadow-xs"
+                  title="Commit New Major Draft (Ctrl+S)"
                 >
                   <GitCommit className="w-3.5 h-3.5" />
                   <span>Commit New Major Draft</span>
