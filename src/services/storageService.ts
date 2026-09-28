@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   COLLECTIONS: 'poetry_archive_collections_v2',
   POEMS: 'poetry_archive_poems_v2',
   THEME: 'poetry_archive_theme_v1',
+  HIGHLIGHTS: 'poetry_archive_highlights_v1',
 };
 
 class StorageService {
@@ -255,6 +256,50 @@ class StorageService {
     if (!this.isBrowser()) return;
     localStorage.setItem('poetry_archive_theme_v2', theme);
     localStorage.setItem(STORAGE_KEYS.THEME, theme);
+  }
+
+  // --- Line Highlights ---
+  getHighlights(poemId: string, draftId?: string): Record<number, string> {
+    if (!this.isBrowser()) return {};
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.HIGHLIGHTS);
+      if (!stored) return {};
+      const parsed = JSON.parse(stored);
+      const key = draftId ? `${poemId}_${draftId}` : poemId;
+      return parsed[key] || parsed[poemId] || {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  saveHighlights(poemId: string, highlights: Record<number, string>, draftId?: string): void {
+    if (!this.isBrowser()) return;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.HIGHLIGHTS);
+      const parsed = stored ? JSON.parse(stored) : {};
+      const key = draftId ? `${poemId}_${draftId}` : poemId;
+      parsed[key] = highlights;
+      localStorage.setItem(STORAGE_KEYS.HIGHLIGHTS, JSON.stringify(parsed));
+      this.notify();
+    } catch (e) {
+      console.error('Failed to save highlights:', e);
+    }
+  }
+
+  clearHighlights(poemId: string, draftId?: string): void {
+    if (!this.isBrowser()) return;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.HIGHLIGHTS);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      const key = draftId ? `${poemId}_${draftId}` : poemId;
+      delete parsed[key];
+      delete parsed[poemId];
+      localStorage.setItem(STORAGE_KEYS.HIGHLIGHTS, JSON.stringify(parsed));
+      this.notify();
+    } catch (e) {
+      console.error('Failed to clear highlights:', e);
+    }
   }
 }
 
