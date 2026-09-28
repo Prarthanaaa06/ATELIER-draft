@@ -25,10 +25,13 @@ import { Poem, Draft, Collection, AppTheme } from '../types/poetry';
 import { ThemeSelectorMenu } from './ThemeSelectorMenu';
 import {
   HighlightToolbar,
-  LineHighlightMenu,
+  FloatingHighlightMenu,
   HighlightColorId,
-  getHighlightLineStyle,
+  TextHighlight,
   getHighlightColor,
+  getHighlightedSegments,
+  addOrUpdateHighlight,
+  removeHighlightById,
 } from './HighlightPalette';
 import { storageService } from '../services/storageService';
 
@@ -76,32 +79,41 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(poem.title);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
 
-  // --- Line Highlighting State ---
-  const [highlights, setHighlights] = useState<Record<number, string>>(() =>
-    storageService.getHighlights(poem.id, selectedDraft.id)
+  // --- Text Section Highlighting State ---
+  const [textHighlights, setTextHighlights] = useState<TextHighlight[]>(() =>
+    storageService.getTextHighlights(poem.id, selectedDraft.id)
   );
   const [isHighlightBarOpen, setIsHighlightBarOpen] = useState(false);
   const [activeHighlightColor, setActiveHighlightColor] = useState<HighlightColorId>('amber');
-  const [isEraserActive, setIsEraserActive] = useState(false);
-  const [activeLineMenuIndex, setActiveLineMenuIndex] = useState<number | null>(null);
+  const [floatingMenu, setFloatingMenu] = useState<{
+    isOpen: boolean;
+    x: number;
+    y: number;
+    start: number;
+    end: number;
+    text: string;
+    activeHighlightId?: string;
+    activeColor?: HighlightColorId;
+  } | null>(null);
 
-  // Sync highlights when poem or selected draft changes
+  // Sync text highlights when poem or selected draft changes
   useEffect(() => {
-    setHighlights(storageService.getHighlights(poem.id, selectedDraft.id));
-    setActiveLineMenuIndex(null);
+    setTextHighlights(storageService.getTextHighlights(poem.id, selectedDraft.id));
+    setFloatingMenu(null);
   }, [poem.id, selectedDraft.id]);
 
-  // Close line popover when clicking anywhere else
+  // Close floating popover when clicking anywhere else
   useEffect(() => {
     const handleDocumentClick = () => {
-      if (activeLineMenuIndex !== null) {
-        setActiveLineMenuIndex(null);
-      }
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) return;
+      setFloatingMenu(null);
     };
     window.addEventListener('click', handleDocumentClick);
     return () => window.removeEventListener('click', handleDocumentClick);
-  }, [activeLineMenuIndex]);
+  }, []);
 
   // Sync title when poem changes
   useEffect(() => {
@@ -169,41 +181,107 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
     setIsEditingTitle(false);
   };
 
-  // Line highlight handlers
-  const handleToggleLineHighlight = (lineIndex: number) => {
-    const newHighlights = { ...highlights };
-    if (isEraserActive) {
-      delete newHighlights[lineIndex];
-    } else {
-      if (newHighlights[lineIndex] === activeHighlightColor) {
-        delete newHighlights[lineIndex];
-      } else {
-        newHighlights[lineIndex] = activeHighlightColor;
+  // --- Text Section Selection & Highlight Handlers ---
+  const handleMouseUpSelection = () => {
+    // Small timeout to allow browser selection to settle
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !textContainerRef.current) {
+        return;
       }
-    }
-    setHighlights(newHighlights);
-    storageService.saveHighlights(poem.id, newHighlights, selectedDraft.id);
+
+      const range = selection.getRangeAt(0);
+      if (!textContainerRef.current.contains(range.commonAncestorContainer)) {
+        return;
+      }
+
+      const rawSelected = selection.toString();
+      if (!rawSelected || rawSelected.trim().length === 0) return;
+
+      // Compute character offset relative to textContainer
+      const preCaretRange = range.cloneRange();
+      preCaretRange.selectNodeContents(textContainerRef.current);
+      preCaretRange.setEnd(range.startContainer, range.startOffset);
+      let start = preCaretRange.toString().length;
+      let end = start + rawSelected.length;
+
+      // Align against full text
+      const fullText = selectedDraft.stanzas;
+      if (fullText.slice(start, end) !== rawSelected) {
+        const found = fullText.indexOf(rawSelected, Math.max(0, start - 25));
+        if (found !== -1) {
+          start = found;
+          end = found + rawSelected.length;
+        }
+      }
+
+      const rect = range.getBoundingClientRect();
+      setFloatingMenu({
+        isOpen: true,
+        x: Math.max(120, Math.min(window.innerWidth - 120, rect.left + rect.width / 2)),
+        y: Math.max(70, rect.top - 6),
+        start,
+        end,
+        text: rawSelected,
+        activeColor: activeHighlightColor,
+        activeHighlightId: undefined, // New selection
+      });
+    }, 10);
   };
 
-  const handleSetLineHighlight = (lineIndex: number, colorId: HighlightColorId) => {
-    const newHighlights = { ...highlights, [lineIndex]: colorId };
-    setHighlights(newHighlights);
-    storageService.saveHighlights(poem.id, newHighlights, selectedDraft.id);
+  const handleHighlightSpanClick = (hl: TextHighlight, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setFloatingMenu({
+      isOpen: true,
+      x: Math.max(120, Math.min(window.innerWidth - 120, rect.left + rect.width / 2)),
+      y: Math.max(70, rect.top - 6),
+      start: hl.start,
+      end: hl.end,
+      text: hl.text,
+      activeColor: hl.color,
+      activeHighlightId: hl.id,
+    });
   };
 
-  const handleRemoveLineHighlight = (lineIndex: number) => {
-    const newHighlights = { ...highlights };
-    delete newHighlights[lineIndex];
-    setHighlights(newHighlights);
-    storageService.saveHighlights(poem.id, newHighlights, selectedDraft.id);
+  const handleApplyHighlight = (color: HighlightColorId) => {
+    if (!floatingMenu) return;
+
+    setActiveHighlightColor(color);
+
+    const newHl: TextHighlight = {
+      id:
+        floatingMenu.activeHighlightId ||
+        `hl-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      start: floatingMenu.start,
+      end: floatingMenu.end,
+      text: floatingMenu.text,
+      color,
+    };
+
+    const updated = addOrUpdateHighlight(textHighlights, newHl);
+    setTextHighlights(updated);
+    storageService.saveTextHighlights(poem.id, updated, selectedDraft.id);
+
+    // Clear browser text selection
+    window.getSelection()?.removeAllRanges();
+    setFloatingMenu(null);
+  };
+
+  const handleRemoveHighlight = () => {
+    if (!floatingMenu?.activeHighlightId) return;
+
+    const updated = removeHighlightById(textHighlights, floatingMenu.activeHighlightId);
+    setTextHighlights(updated);
+    storageService.saveTextHighlights(poem.id, updated, selectedDraft.id);
+    setFloatingMenu(null);
   };
 
   const handleClearAllHighlights = () => {
-    setHighlights({});
-    storageService.clearHighlights(poem.id, selectedDraft.id);
+    setTextHighlights([]);
+    storageService.clearTextHighlights(poem.id, selectedDraft.id);
+    setFloatingMenu(null);
   };
-
-  const highlightedCount = Object.keys(highlights).length;
 
   const hasUncommittedChanges = isLatestDraft && editedStanzas !== selectedDraft.stanzas;
 
@@ -281,14 +359,11 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
 
           {/* Highlighter Palette Toggle */}
           <button
-            onClick={() => {
-              setIsHighlightBarOpen(!isHighlightBarOpen);
-              if (isEraserActive) setIsEraserActive(false);
-            }}
+            onClick={() => setIsHighlightBarOpen(!isHighlightBarOpen)}
             title={
               isHighlightBarOpen
                 ? 'Close Highlighter Palette'
-                : 'Highlighter Palette — highlight lines with colors'
+                : 'Highlighter Palette — select any text section to highlight with colors'
             }
             className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded text-xs border transition-all ${
               isHighlightBarOpen
@@ -298,13 +373,13 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
           >
             <span
               className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-xs"
-              style={{ backgroundColor: getHighlightColor(activeHighlightColor)?.dotHex }}
+              style={{ backgroundColor: getHighlightColor(activeHighlightColor).dotHex }}
             />
             <Highlighter className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Highlight</span>
-            {highlightedCount > 0 && (
+            {textHighlights.length > 0 && (
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-paper-300/80 dark:bg-ink-750 text-paper-800 dark:text-ink-200">
-                {highlightedCount}
+                {textHighlights.length}
               </span>
             )}
           </button>
@@ -375,13 +450,8 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
           isOpen={isHighlightBarOpen}
           onClose={() => setIsHighlightBarOpen(false)}
           activeColor={activeHighlightColor}
-          onSelectColor={(c) => {
-            setActiveHighlightColor(c);
-            setIsEraserActive(false);
-          }}
-          isEraserActive={isEraserActive}
-          onToggleEraser={() => setIsEraserActive(!isEraserActive)}
-          highlightedCount={highlightedCount}
+          onSelectColor={(c) => setActiveHighlightColor(c)}
+          highlightedCount={textHighlights.length}
           onClearAll={handleClearAllHighlights}
         />
       </div>
@@ -599,9 +669,11 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
               </div>
             </div>
           ) : (
-            /* Pristine Read-Only Stanza Display with Interactive Line Highlights */
+            /* Pristine Read-Only Stanza Display with Interactive Text Selection Highlights */
             <div
-              className={`poem-stanza-text select-text text-paper-900 dark:text-ink-100 ${
+              ref={textContainerRef}
+              onMouseUp={handleMouseUpSelection}
+              className={`poem-stanza-text select-text whitespace-pre-wrap leading-relaxed text-paper-900 dark:text-ink-100 ${
                 fontSize === 'normal'
                   ? 'text-lg sm:text-xl leading-loose'
                   : fontSize === 'large'
@@ -609,66 +681,21 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
                   : 'text-2xl sm:text-3xl leading-[2.4]'
               }`}
             >
-              {selectedDraft.stanzas.split('\n').map((line, idx) => {
-                if (line.trim() === '') {
-                  return <div key={idx} className="h-6" aria-hidden="true" />;
+              {getHighlightedSegments(selectedDraft.stanzas, textHighlights).map((seg) => {
+                if (!seg.highlight) {
+                  return <span key={seg.key}>{seg.text}</span>;
                 }
 
-                const color = highlights[idx];
-                const highlightStyle = getHighlightLineStyle(color);
-                const isMenuOpen = activeLineMenuIndex === idx;
-
+                const color = getHighlightColor(seg.highlight.color);
                 return (
-                  <div
-                    key={idx}
-                    className={`relative group/line flex items-baseline rounded-r-md transition-all duration-150 py-0.5 px-2.5 -mx-2.5 my-0.5 ${
-                      highlightStyle ||
-                      (isHighlightBarOpen ? 'hover:bg-paper-200/50 dark:hover:bg-ink-800/50' : '')
-                    } ${isHighlightBarOpen ? 'cursor-pointer' : ''}`}
-                    onClick={() => {
-                      if (isHighlightBarOpen) {
-                        handleToggleLineHighlight(idx);
-                      }
-                    }}
+                  <mark
+                    key={seg.key}
+                    onClick={(e) => handleHighlightSpanClick(seg.highlight!, e)}
+                    className={`cursor-pointer rounded-sm px-1 py-0.5 transition-all duration-150 ${color.spanClass} hover:opacity-90`}
+                    title={`Highlighted in ${color.name} (Click to change color or remove)`}
                   >
-                    {/* Gutter Highlighter Action Button & Mini Popover */}
-                    <div className="absolute -left-8 top-1/2 -translate-y-1/2 flex items-center no-print">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveLineMenuIndex(isMenuOpen ? null : idx);
-                        }}
-                        className={`p-1 rounded-md transition-all ${
-                          color || isMenuOpen
-                            ? 'opacity-90 hover:opacity-100 scale-105'
-                            : 'opacity-0 group-hover/line:opacity-70 hover:opacity-100 hover:scale-105'
-                        } hover:bg-paper-200/80 dark:hover:bg-ink-700 text-paper-500 dark:text-ink-400`}
-                        title={
-                          color
-                            ? `Highlighted (${getHighlightColor(color)?.name}) — Click to change or remove`
-                            : 'Highlight line'
-                        }
-                      >
-                        <Highlighter
-                          className="w-3.5 h-3.5"
-                          style={{ color: color ? getHighlightColor(color)?.dotHex : undefined }}
-                        />
-                      </button>
-
-                      {isMenuOpen && (
-                        <LineHighlightMenu
-                          currentHighlight={color}
-                          onSelectColor={(c) => handleSetLineHighlight(idx, c)}
-                          onRemove={() => handleRemoveLineHighlight(idx)}
-                          onClose={() => setActiveLineMenuIndex(null)}
-                        />
-                      )}
-                    </div>
-
-                    {/* Stanza Line Text */}
-                    <span className="flex-1 select-text">{line}</span>
-                  </div>
+                    {seg.text}
+                  </mark>
                 );
               })}
             </div>
@@ -700,12 +727,12 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
             <span>{nonEmptyLines.length} lines</span>
             <span>•</span>
             <span>{stanzaCount} {stanzaCount === 1 ? 'stanza' : 'stanzas'}</span>
-            {highlightedCount > 0 && (
+            {textHighlights.length > 0 && (
               <>
                 <span>•</span>
                 <span className="text-amber-600 dark:text-amber-400 font-medium inline-flex items-center gap-1">
                   <Highlighter className="w-3 h-3" />
-                  {highlightedCount} {highlightedCount === 1 ? 'highlighted' : 'highlighted'}
+                  {textHighlights.length} {textHighlights.length === 1 ? 'highlighted passage' : 'highlighted passages'}
                 </span>
               </>
             )}
@@ -718,6 +745,20 @@ export const PoemCanvas: React.FC<PoemCanvasProps> = ({
           </div>
         </footer>
       </article>
+
+      {/* Floating Selection Palette Popover */}
+      {floatingMenu && floatingMenu.isOpen && (
+        <FloatingHighlightMenu
+          x={floatingMenu.x}
+          y={floatingMenu.y}
+          selectedText={floatingMenu.text}
+          activeColor={floatingMenu.activeColor || activeHighlightColor}
+          isExisting={Boolean(floatingMenu.activeHighlightId)}
+          onSelectColor={handleApplyHighlight}
+          onRemove={handleRemoveHighlight}
+          onClose={() => setFloatingMenu(null)}
+        />
+      )}
 
       {/* Floating Zen Mode exit hint */}
       {isZenMode && (

@@ -1,11 +1,13 @@
 import { Collection, Poem, Draft, AppTheme } from '../types/poetry';
 import { INITIAL_COLLECTIONS, INITIAL_POEMS } from '../data/mockPoetry';
+import { TextHighlight } from '../components/HighlightPalette';
 
 const STORAGE_KEYS = {
   COLLECTIONS: 'poetry_archive_collections_v2',
   POEMS: 'poetry_archive_poems_v2',
   THEME: 'poetry_archive_theme_v1',
   HIGHLIGHTS: 'poetry_archive_highlights_v1',
+  TEXT_HIGHLIGHTS: 'poetry_archive_text_highlights_v2',
 };
 
 class StorageService {
@@ -299,6 +301,51 @@ class StorageService {
       this.notify();
     } catch (e) {
       console.error('Failed to clear highlights:', e);
+    }
+  }
+
+  // --- Selected Text Section Highlights ---
+  getTextHighlights(poemId: string, draftId?: string): TextHighlight[] {
+    if (!this.isBrowser()) return [];
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.TEXT_HIGHLIGHTS);
+      if (!stored) return [];
+      const parsed = JSON.parse(stored);
+      const key = draftId ? `${poemId}_${draftId}` : poemId;
+      const val = parsed[key] || parsed[poemId];
+      return Array.isArray(val) ? val : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  saveTextHighlights(poemId: string, highlights: TextHighlight[], draftId?: string): void {
+    if (!this.isBrowser()) return;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.TEXT_HIGHLIGHTS);
+      const parsed = stored ? JSON.parse(stored) : {};
+      const key = draftId ? `${poemId}_${draftId}` : poemId;
+      parsed[key] = highlights;
+      localStorage.setItem(STORAGE_KEYS.TEXT_HIGHLIGHTS, JSON.stringify(parsed));
+      this.notify();
+    } catch (e) {
+      console.error('Failed to save text highlights:', e);
+    }
+  }
+
+  clearTextHighlights(poemId: string, draftId?: string): void {
+    if (!this.isBrowser()) return;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.TEXT_HIGHLIGHTS);
+      if (!stored) return;
+      const parsed = JSON.parse(stored);
+      const key = draftId ? `${poemId}_${draftId}` : poemId;
+      delete parsed[key];
+      delete parsed[poemId];
+      localStorage.setItem(STORAGE_KEYS.TEXT_HIGHLIGHTS, JSON.stringify(parsed));
+      this.notify();
+    } catch (e) {
+      console.error('Failed to clear text highlights:', e);
     }
   }
 }
