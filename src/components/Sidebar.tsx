@@ -21,6 +21,10 @@ import {
   Sparkles,
   Edit2,
   Keyboard,
+  LayoutGrid,
+  Edit3,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 import { Collection, Poem, ViewFilter, AppTheme } from '../types/poetry';
 import { UserProfile } from '../services/authService';
@@ -39,6 +43,10 @@ interface SidebarProps {
   currentUser?: UserProfile | null;
   syncStatus?: SyncStatus;
   lastSyncedTime?: Date | null;
+  viewMode?: 'dashboard' | 'atelier';
+  onNavigateToDashboard?: () => void;
+  onNavigateToAtelier?: () => void;
+  onOpenAuthPortal?: () => void;
   onOpenAccountModal?: () => void;
   onOpenFilePicker?: () => void;
   onOpenShortcuts?: () => void;
@@ -87,6 +95,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   syncStatus = 'guest',
   lastSyncedTime,
+  viewMode = 'atelier',
+  onNavigateToDashboard,
+  onNavigateToAtelier,
+  onOpenAuthPortal,
   onOpenAccountModal,
   onOpenFilePicker,
   onOpenShortcuts,
@@ -182,6 +194,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           <div className="w-6 h-px bg-paper-300 dark:bg-ink-800 my-1" />
           <button
+            onClick={onNavigateToDashboard}
+            title="Manuscripts Gallery Dashboard"
+            className={`p-2 rounded transition-colors ${
+              viewMode === 'dashboard'
+                ? 'bg-paper-250 dark:bg-ink-800 text-paper-950 dark:text-white shadow-xs'
+                : 'text-paper-500 hover:text-paper-800 dark:text-ink-400'
+            }`}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onNavigateToAtelier}
+            title="Writing Atelier"
+            className={`p-2 rounded transition-colors ${
+              viewMode === 'atelier'
+                ? 'bg-paper-250 dark:bg-ink-800 text-paper-950 dark:text-white shadow-xs'
+                : 'text-paper-500 hover:text-paper-800 dark:text-ink-400'
+            }`}
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <div className="w-6 h-px bg-paper-300 dark:bg-ink-800 my-1" />
+          <button
             onClick={() => onSelectFilter({ type: 'all' })}
             title="All Poems"
             className={`p-2 rounded transition-colors ${
@@ -274,7 +309,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Top Header & Brand */}
       <div className="p-4 border-b border-paper-200 dark:border-ink-850">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={onNavigateToDashboard}
+            className="flex items-center space-x-2 text-left hover:opacity-85 transition-opacity cursor-pointer"
+            title="Go to Manuscripts Gallery Dashboard"
+          >
             <span className="font-serif text-lg tracking-wider font-semibold text-paper-900 dark:text-ink-100 flex items-center gap-1.5">
               <Feather className="w-4 h-4 text-paper-600 dark:text-ink-400 stroke-[1.5]" />
               ATELIER
@@ -282,7 +322,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="text-[10px] tracking-widest uppercase px-1.5 py-0.5 rounded bg-paper-200 dark:bg-ink-800 text-paper-600 dark:text-ink-400 font-mono">
               ARCHIVE
             </span>
-          </div>
+          </button>
           <button
             onClick={onToggleCollapse}
             title="Collapse Sidebar"
@@ -398,6 +438,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Navigation Sections */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+        {/* Central Stage Switching */}
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={onNavigateToDashboard}
+            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-all ${
+              viewMode === 'dashboard'
+                ? 'bg-paper-900 text-paper-50 dark:bg-ink-100 dark:text-ink-950 shadow-xs'
+                : 'text-paper-700 dark:text-ink-300 hover:bg-paper-200/70 dark:hover:bg-ink-850'
+            }`}
+            title="Manuscripts & Drafts Gallery"
+          >
+            <div className="flex items-center space-x-2.5">
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Manuscripts Gallery</span>
+            </div>
+            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/10 dark:bg-white/20">
+              {poems.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onNavigateToAtelier}
+            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium transition-all ${
+              viewMode === 'atelier'
+                ? 'bg-paper-900 text-paper-50 dark:bg-ink-100 dark:text-ink-950 shadow-xs'
+                : 'text-paper-700 dark:text-ink-300 hover:bg-paper-200/70 dark:hover:bg-ink-850'
+            }`}
+            title="Writing & Revision Studio"
+          >
+            <div className="flex items-center space-x-2.5">
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Writing Atelier</span>
+            </div>
+            <span className="text-[10px] font-serif italic opacity-75">
+              Focus
+            </span>
+          </button>
+        </div>
+
         {/* Collections Overview */}
         <div>
           <div className="flex items-center justify-between px-2 py-1 text-[11px] font-medium tracking-wider uppercase text-paper-500 dark:text-ink-500">

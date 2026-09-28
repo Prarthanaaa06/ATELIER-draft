@@ -212,6 +212,27 @@ class StorageService {
     this.savePoems(poems);
   }
 
+  duplicatePoem(poemId: string): Poem | undefined {
+    const original = this.getPoem(poemId);
+    if (!original) return undefined;
+
+    const newPoem: Poem = {
+      ...original,
+      id: `poem-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title: `${original.title} (Copy)`,
+      dateCreated: new Date().toISOString(),
+      drafts: original.drafts.map((d) => ({
+        ...d,
+        id: `draft-${Date.now()}-${d.versionNumber}`,
+        timestamp: new Date().toISOString(),
+      })),
+    };
+
+    const updated = [newPoem, ...this.getPoems()];
+    this.savePoems(updated);
+    return newPoem;
+  }
+
   resetToMockData(): void {
     if (!this.isBrowser()) return;
     localStorage.setItem(STORAGE_KEYS.COLLECTIONS, JSON.stringify(INITIAL_COLLECTIONS));

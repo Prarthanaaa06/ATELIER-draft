@@ -21,6 +21,20 @@ import { UserAccountModal } from './components/UserAccountModal';
 import { OrganizeImportModal } from './components/OrganizeImportModal';
 import { DropZoneOverlay } from './components/DropZoneOverlay';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
+import { ShortcutsModal } from './components/ShortcutsModal';
+import { AuthPortal } from './components/AuthPortal';
+import { ManuscriptGrid } from './components/ManuscriptGrid';
+import { EditorStage } from './components/EditorStage';
+import { VersionTimeline } from './components/VersionTimeline';
+import {
+  Cloud,
+  LayoutGrid,
+  Edit3,
+  Keyboard,
+  LogOut,
+  LogIn,
+  ChevronDown,
+} from 'lucide-react';
 
 export const App: React.FC = () => {
   // --- Persistent & Core State ---
@@ -36,6 +50,11 @@ export const App: React.FC = () => {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => cloudSyncService.getSyncStatus().status);
   const [lastSyncedTime, setLastSyncedTime] = useState<Date | null>(() => cloudSyncService.getSyncStatus().lastSynced);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isAuthPortalOpen, setIsAuthPortalOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+
+  // --- Central Workspace View Mode ---
+  const [viewMode, setViewMode] = useState<'dashboard' | 'atelier'>('dashboard');
 
   // --- Drag & Drop / File Intake State ---
   const [isDragging, setIsDragging] = useState(false);
@@ -221,7 +240,34 @@ export const App: React.FC = () => {
     setActivePoemId(newPoem.id);
     setSelectedDraftId(newPoem.drafts[0].id);
     setWorkingStanzas(stanzas);
+    setViewMode('atelier');
     showToast(`Archived "${title}" with Draft v1.`);
+  };
+
+  const handleDeletePoem = (poemId: string) => {
+    storageService.deletePoem(poemId);
+    const updated = storageService.getPoems();
+    setPoems(updated);
+    if (activePoemId === poemId) {
+      if (updated.length > 0) {
+        setActivePoemId(updated[0].id);
+        setSelectedDraftId(updated[0].drafts[updated[0].drafts.length - 1].id);
+      } else {
+        setActivePoemId('');
+      }
+    }
+    showToast('Manuscript deleted from archive');
+  };
+
+  const handleDuplicatePoem = (poemId: string) => {
+    const dup = storageService.duplicatePoem(poemId);
+    if (dup) {
+      const updated = storageService.getPoems();
+      setPoems(updated);
+      setActivePoemId(dup.id);
+      setSelectedDraftId(dup.drafts[dup.drafts.length - 1].id);
+      showToast(`Duplicated as "${dup.title}"`);
+    }
   };
 
   const handleCreateCollection = (title: string, description: string, motto?: string) => {
@@ -564,6 +610,33 @@ export const App: React.FC = () => {
     isNewDraftModalOpen,
   ]);
 
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleCloseProfileMenu = () => setIsProfileMenuOpen(false);
+    window.addEventListener('click', handleCloseProfileMenu);
+    return () => window.removeEventListener('click', handleCloseProfileMenu);
+  }, []);
+
+  // --- Authentication State Router ---
+  // If unauthenticated: Display the dedicated Login / Welcome Portal
+  if (!currentUser) {
+    return (
+      <AuthPortal
+        currentTheme={currentTheme}
+        onSelectTheme={handleSelectTheme}
+        onEnterDemoMode={() => {
+          const demo = authService.signInDemoAccount();
+          setCurrentUser(demo);
+          showToast('Entered Demo Mode — welcome to your offline archive!');
+        }}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          showToast(`Welcome back, ${user.displayName || 'Poet'}!`);
+        }}
+      />
+    );
+  }
+
   return (
     <div
       className="flex h-screen w-screen overflow-hidden bg-paper-50 dark:bg-ink-950 font-sans relative"
@@ -614,6 +687,176 @@ export const App: React.FC = () => {
         className="hidden"
       />
 
+      {/* Floating / Top Action Bar */}
+      {!isZenMode && (
+        <div className="fixed top-3 right-4 sm:right-6 z-30 flex items-center space-x-2 bg-paper-100/90 hover:bg-paper-100 dark:bg-ink-900/90 dark:hover:bg-ink-900 backdrop-blur-md border border-paper-300/80 dark:border-ink-800 rounded-2xl p-1 shadow-subtle text-xs transition-all no-print">
+          {/* View Mode Switcher */}
+          <div className="flex items-center border border-paper-250 dark:border-ink-750 rounded-xl p-0.5 bg-paper-200/50 dark:bg-ink-850">
+            <button
+              type="button"
+              onClick={() => setViewMode('dashboard')}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                viewMode === 'dashboard'
+                  ? 'bg-paper-50 dark:bg-ink-700 text-paper-950 dark:text-white font-medium shadow-xs'
+                  : 'text-paper-500 hover:text-paper-800 dark:text-ink-400'
+              }`}
+              title="Manuscripts Gallery Dashboard"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Gallery</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('atelier')}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                viewMode === 'atelier'
+                  ? 'bg-paper-50 dark:bg-ink-700 text-paper-950 dark:text-white font-medium shadow-xs'
+                  : 'text-paper-500 hover:text-paper-800 dark:text-ink-400'
+              }`}
+              title="Writing Atelier Studio"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Atelier</span>
+            </button>
+          </div>
+
+          {/* Cloud Sync Status Badge */}
+          <button
+            onClick={() => setIsAccountModalOpen(true)}
+            className="flex items-center space-x-1.5 px-2 py-1 rounded-xl hover:bg-paper-200/80 dark:hover:bg-ink-800 transition-colors text-paper-600 dark:text-ink-300 cursor-pointer"
+            title={`Cloud Sync Status: ${syncStatus} (Click to manage)`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                syncStatus === 'synced'
+                  ? 'bg-emerald-500'
+                  : syncStatus === 'syncing'
+                  ? 'bg-amber-500 animate-ping'
+                  : 'bg-stone-400'
+              }`}
+            />
+            <span className="hidden lg:inline capitalize font-mono text-[10px]">
+              {syncStatus === 'synced' ? 'Synced' : syncStatus === 'syncing' ? 'Syncing...' : 'Offline'}
+            </span>
+          </button>
+
+          {/* Keyboard Shortcuts (?) */}
+          <button
+            onClick={() => setIsShortcutsModalOpen(true)}
+            className="p-1.5 rounded-xl hover:bg-paper-200/80 dark:hover:bg-ink-800 text-paper-500 dark:text-ink-400 hover:text-paper-900 dark:hover:text-white transition-colors cursor-pointer"
+            title="Keyboard Shortcuts (?)"
+          >
+            <Keyboard className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Profile Avatar Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsProfileMenuOpen(!isProfileMenuOpen);
+              }}
+              className="flex items-center space-x-1 p-1 pl-1.5 rounded-xl hover:bg-paper-200/80 dark:hover:bg-ink-800 transition-colors cursor-pointer"
+              title="Account & Profile options"
+            >
+              {currentUser?.photoURL ? (
+                <img
+                  src={currentUser.photoURL}
+                  alt={currentUser.displayName || 'User'}
+                  className="w-5 h-5 rounded-full object-cover border border-amber-500/50"
+                />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-amber-700 text-white flex items-center justify-center font-bold text-[10px]">
+                  {(currentUser?.displayName || currentUser?.email || 'U')[0].toUpperCase()}
+                </div>
+              )}
+              <ChevronDown className="w-3 h-3 text-paper-400 dark:text-ink-500" />
+            </button>
+
+            {/* Profile Dropdown Menu */}
+            {isProfileMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-1.5 w-60 rounded-2xl border border-paper-300 dark:border-ink-750 bg-paper-50 dark:bg-ink-900 shadow-elevated p-2 text-xs z-50 animate-fadeIn"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-2 border-b border-paper-200 dark:border-ink-800 mb-1">
+                  <div className="font-semibold text-paper-900 dark:text-ink-100 truncate">
+                    {currentUser?.displayName || 'Poet'}
+                  </div>
+                  <div className="text-[11px] text-paper-500 dark:text-ink-400 truncate">
+                    {currentUser?.email || 'Local Atelier'}
+                  </div>
+                  {currentUser?.isDemo && (
+                    <span className="inline-block mt-1 px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-mono uppercase font-bold">
+                      Demo Sandbox
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => {
+                    setViewMode('dashboard');
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-paper-200 dark:hover:bg-ink-800 flex items-center space-x-2 text-paper-700 dark:text-ink-200"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Manuscripts Gallery</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setViewMode('atelier');
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-paper-200 dark:hover:bg-ink-800 flex items-center space-x-2 text-paper-700 dark:text-ink-200"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Writing Atelier</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsAccountModalOpen(true);
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-paper-200 dark:hover:bg-ink-800 flex items-center space-x-2 text-paper-700 dark:text-ink-200"
+                >
+                  <Cloud className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Sync &amp; Account Settings</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsAuthPortalOpen(true);
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-paper-200 dark:hover:bg-ink-800 flex items-center space-x-2 text-paper-700 dark:text-ink-200"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Welcome / Login Portal</span>
+                </button>
+
+                <div className="h-px bg-paper-200 dark:bg-ink-800 my-1" />
+
+                <button
+                  onClick={async () => {
+                    setIsProfileMenuOpen(false);
+                    await authService.signOut();
+                    showToast('Signed out of Atelier');
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center space-x-2 cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Left Sidebar (Collections & Poems list) */}
       {!isZenMode && (
         <Sidebar
@@ -628,10 +871,17 @@ export const App: React.FC = () => {
           currentUser={currentUser}
           syncStatus={syncStatus}
           lastSyncedTime={lastSyncedTime}
+          viewMode={viewMode}
+          onNavigateToDashboard={() => setViewMode('dashboard')}
+          onNavigateToAtelier={() => setViewMode('atelier')}
+          onOpenAuthPortal={() => setIsAuthPortalOpen(true)}
           onOpenAccountModal={() => setIsAccountModalOpen(true)}
           onOpenFilePicker={() => poetryFileInputRef.current?.click()}
           onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
-          onSelectPoem={handleSelectPoem}
+          onSelectPoem={(poemId) => {
+            handleSelectPoem(poemId);
+            setViewMode('atelier');
+          }}
           onSelectFilter={setFilter}
           onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           onToggleDarkMode={() => handleSelectTheme(currentTheme === 'dark' ? 'brown' : 'dark')}
@@ -644,7 +894,7 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Main Center Area: Reading/Editing Canvas OR Diff Viewer */}
+      {/* Main Center Area: Dashboard Grid OR Reading/Editing Atelier OR Diff Viewer */}
       {isDiffOpen && activePoem ? (
         <DiffViewer
           poem={activePoem}
@@ -652,8 +902,29 @@ export const App: React.FC = () => {
           initialBaseDraftId={diffBaseDraftId}
           onClose={() => setIsDiffOpen(false)}
         />
+      ) : viewMode === 'dashboard' ? (
+        <ManuscriptGrid
+          poems={poems}
+          collections={collections}
+          activePoemId={activePoemId}
+          onSelectPoem={(poemId) => {
+            handleSelectPoem(poemId);
+            setViewMode('atelier');
+          }}
+          onOpenNewPoem={() => setIsNewPoemModalOpen(true)}
+          onOpenNewCollection={() => setIsNewCollectionModalOpen(true)}
+          onOpenFilePicker={() => poetryFileInputRef.current?.click()}
+          onDeletePoem={handleDeletePoem}
+          onDuplicatePoem={handleDuplicatePoem}
+          onUpdatePoemTitle={handleUpdatePoemTitle}
+          onOpenDiff={(poemId) => {
+            handleSelectPoem(poemId);
+            handleOpenDiff();
+          }}
+          onShowToast={showToast}
+        />
       ) : activePoem && selectedDraft ? (
-        <PoemCanvas
+        <EditorStage
           poem={activePoem}
           selectedDraft={selectedDraft}
           isLatestDraft={isLatestDraft}
@@ -669,6 +940,8 @@ export const App: React.FC = () => {
           onBranchFromDraft={handleBranchFromDraft}
           onUpdatePoemTitle={handleUpdatePoemTitle}
           onEditCollection={handleOpenEditCollection}
+          onBackToDashboard={() => setViewMode('dashboard')}
+          onToggleTimeline={() => setIsTimelineCollapsed(!isTimelineCollapsed)}
         />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-paper-500 dark:text-ink-500">
@@ -682,9 +955,9 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Right Draft Drawer / Timeline */}
-      {!isZenMode && !isDiffOpen && activePoem && (
-        <DraftTimeline
+      {/* Right Draft Drawer / Timeline (Visible in Atelier Focus mode) */}
+      {!isZenMode && !isDiffOpen && activePoem && viewMode === 'atelier' && (
+        <VersionTimeline
           poem={activePoem}
           selectedDraftId={selectedDraftId}
           isCollapsed={isTimelineCollapsed}
@@ -765,6 +1038,26 @@ export const App: React.FC = () => {
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
       />
+
+      {/* Auth / Welcome Portal Modal */}
+      {isAuthPortalOpen && (
+        <AuthPortal
+          currentTheme={currentTheme}
+          onSelectTheme={handleSelectTheme}
+          onEnterDemoMode={() => {
+            const demo = authService.signInDemoAccount();
+            setCurrentUser(demo);
+            setIsAuthPortalOpen(false);
+            showToast('Entered Demo Mode');
+          }}
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            setIsAuthPortalOpen(false);
+            showToast(`Welcome back, ${user.displayName || 'Poet'}!`);
+          }}
+          onDismiss={() => setIsAuthPortalOpen(false)}
+        />
+      )}
 
       {/* Toast Feedback Notification */}
       {toastMessage && (
